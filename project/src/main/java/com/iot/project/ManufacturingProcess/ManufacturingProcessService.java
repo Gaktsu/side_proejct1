@@ -16,7 +16,12 @@ public class ManufacturingProcessService {
         if (manufacturingProcessRepository.existsByProcessCode(request.processCode())) {
             throw new DuplicateProcessCodeException(request.processCode());
         }
-        return ManufacturingProcessResponse.from(manufacturingProcessRepository.save(request.toEntity()));
+        try {
+            // 동시 요청이 exists 검사를 함께 통과한 경우 DB UNIQUE 제약이 막는다
+            return ManufacturingProcessResponse.from(manufacturingProcessRepository.saveAndFlush(request.toEntity()));
+        } catch (DataIntegrityViolationException e) {
+            throw new DuplicateProcessCodeException(request.processCode());
+        }
     }
 
     @Transactional

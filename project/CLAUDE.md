@@ -8,7 +8,7 @@ AI 기반 품질사례 지식화 및 원인조사 지원 시스템 (12주 MVP). 
 
 기획서 원본: `/home/minsung/Documents/Backend/개인 프로젝트/첫번째/1주 (기획으로 인해 생략)/기획서/기획서.md` (API 목록, UI 구성, 설계 이유 포함)
 
-현재 상태: 엔티티 + Flyway V1 스키마만 존재. Repository/Service/Controller 없음. 구현 순서는 Product → Process → Equipment → QualityCase → InspectionResult → Analysis → AnalysisCandidate, 이후 React → Embedding → Qdrant → JEV → RAG → LLM. MVP에서 로그인/권한, 비동기 처리는 제외.
+현재 상태: 엔티티 7개 + Flyway V1 스키마. API는 Product / ManufacturingProcess / Equipment / QualityCase의 **등록·삭제만** 구현됨 (조회·수정 없음). QualityCase의 `caseCode`는 서버가 `QC-yyyyMMdd-랜덤8자리`로 임시 생성 (추후 가상 사례 생성기에서 재검토). 나머지 엔티티는 Repository/Service/Controller 없음. 새 API 작업 흐름(구현 규칙, 테스트, `diagrams/` 순서도)은 `.claude/skills/domain-api-feature` 스킬을 따른다. 구현 순서는 Product → Process → Equipment → QualityCase → InspectionResult → Analysis → AnalysisCandidate, 이후 React → Embedding → Qdrant → JEV → RAG → LLM. MVP에서 로그인/권한, 비동기 처리는 제외.
 
 ## 명령어
 

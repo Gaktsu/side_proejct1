@@ -23,7 +23,12 @@ public class EquipmentService {
             throw new DuplicateEquipmentCodeException(request.equipmentCode());
         }
         Equipment equipment = new Equipment(process, request.equipmentCode(), request.name(), request.description());
-        return EquipmentResponse.from(equipmentRepository.save(equipment));
+        try {
+            // 동시 요청이 exists 검사를 함께 통과한 경우 DB UNIQUE 제약이 막는다
+            return EquipmentResponse.from(equipmentRepository.saveAndFlush(equipment));
+        } catch (DataIntegrityViolationException e) {
+            throw new DuplicateEquipmentCodeException(request.equipmentCode());
+        }
     }
 
     @Transactional

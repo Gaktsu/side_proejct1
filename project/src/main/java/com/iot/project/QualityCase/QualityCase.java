@@ -93,4 +93,25 @@ public class QualityCase {
     // 수정일
     @Column(nullable = false)
     private LocalDateTime updatedAt;
+
+    // 신규 품질문제는 OPEN 상태로 생성되고 원인/조치/결과는 비어 있다
+    public QualityCase(String caseCode, Product product, ManufacturingProcess manufacturingProcess,
+                       Equipment equipment, String lotNo, String title, String problemDescription,
+                       String defectType, Integer productionQuantity, Integer defectQuantity,
+                       LocalDateTime occurredAt) {
+        this.caseCode = caseCode;
+        this.product = product;
+        this.manufacturingProcess = manufacturingProcess;
+        this.equipment = equipment;
+        this.lotNo = lotNo;
+        this.title = title;
+        this.problemDescription = problemDescription;
+        this.defectType = defectType;
+        this.productionQuantity = productionQuantity;
+        this.defectQuantity = defectQuantity;
+        this.status = CaseStatus.OPEN;
+        this.occurredAt = occurredAt;
+        this.createdAt = LocalDateTime.now();
+        this.updatedAt = this.createdAt;
+    }
 }

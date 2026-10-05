@@ -16,7 +16,12 @@ public class ProductService {
         if (productRepository.existsByProductCode(request.productCode())) {
             throw new DuplicateProductCodeException(request.productCode());
         }
-        return ProductResponse.from(productRepository.save(request.toEntity()));
+        try {
+            // 동시 요청이 exists 검사를 함께 통과한 경우 DB UNIQUE 제약이 막는다
+            return ProductResponse.from(productRepository.saveAndFlush(request.toEntity()));
+        } catch (DataIntegrityViolationException e) {
+            throw new DuplicateProductCodeException(request.productCode());
+        }
     }
 
     @Transactional
