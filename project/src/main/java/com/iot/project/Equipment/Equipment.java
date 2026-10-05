@@ -40,4 +40,12 @@ public class Equipment {
     // 등록일
     @Column(nullable = false)
     private LocalDateTime createdAt;
+
+    public Equipment(ManufacturingProcess manufacturingProcess, String equipmentCode, String name, String description) {
+        this.manufacturingProcess = manufacturingProcess;
+        this.equipmentCode = equipmentCode;
+        this.name = name;
+        this.description = description;
+        this.createdAt = LocalDateTime.now();
+    }
 }

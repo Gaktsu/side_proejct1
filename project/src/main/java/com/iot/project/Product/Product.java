@@ -38,4 +38,12 @@ public class Product {
     // 생산일
     @Column(nullable = false)
     private LocalDateTime createdAt;
+
+    public Product(String productCode, String name, String modelName, String description) {
+        this.productCode = productCode;
+        this.name = name;
+        this.modelName = modelName;
+        this.description = description;
+        this.createdAt = LocalDateTime.now();
+    }
 }

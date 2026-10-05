@@ -34,4 +34,11 @@ public class ManufacturingProcess {
     // 생산일
     @Column(nullable = false)
     private LocalDateTime createdAt;
+
+    public ManufacturingProcess(String processCode, String name, String description) {
+        this.processCode = processCode;
+        this.name = name;
+        this.description = description;
+        this.createdAt = LocalDateTime.now();
+    }
 }
