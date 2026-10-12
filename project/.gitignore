@@ -39,3 +39,5 @@ out/
 
 ### SQL ###
 *.sql
+
+quality_retrieval_benchmark_v*/

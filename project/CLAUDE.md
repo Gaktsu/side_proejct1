@@ -37,3 +37,12 @@ AI 기반 품질사례 지식화 및 원인조사 지원 시스템 (12주 MVP). 
 - `Analysis.analysisStatus`(`ANALYZING/COMPLETED/INSUFFICIENT_EVIDENCE/FAILED`)는 `QualityCase.status`와 별개 개념. `Analysis`는 AI 분석 1회 실행.
 - `AnalysisCandidate`는 Qdrant 검색 결과와 JEV 판단(Score/Null/Choice)을 기록해 Qdrant·JEV·LLM 중 어느 단계 문제인지 추적하기 위한 테이블. 현재 Choice 여부 컬럼은 없음.
 - MySQL이 원본, Qdrant(`quality_case_vectors`, Point ID = `QualityCase.id`)는 검색용 벡터만 보관. **`RESOLVED` 사례만 Qdrant에 적재**한다 (resolve 시 Embedding 생성 후 추가).
+
+## Embedding 규칙
+
+- 모델: **`telepix/PIXIE-Rune-v1.0`** (dense, Apache-2.0). 선정 근거와 후보 비교는 `quality_retrieval_benchmark_v1/`, `v2/`의 `results/` 참고.
+- 벡터 1024차원, 유사도 cosine → Qdrant 컬렉션 `quality_case_vectors`는 `size=1024, distance=Cosine`.
+- 신규 문제(검색 쿼리)는 앞에 **`query: ` 접두어**를 붙이고, 과거 사례(문서)는 접두어 없이 임베딩한다.
+- 최대 입력 6144 토큰.
+- 사례 문서 텍스트는 `공정/제품/증상/관찰/확정 원인/조치` 필드를 같은 형식으로 이어 붙여 만든다. 필드 구성을 바꾸면 기존 벡터를 모두 다시 적재해야 한다.
+- 임베딩은 부정 조건("~는 정상", "~는 아니다")을 구분하지 못한다(벤치마크 대조쌍 1/5). Qdrant는 후보를 **top-5 이상** 넉넉히 가져오는 역할만 맡고, 원인 판별은 JEV/LLM 단계에서 한다.
