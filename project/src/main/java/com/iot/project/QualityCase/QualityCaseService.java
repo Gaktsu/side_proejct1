@@ -11,11 +11,13 @@ import com.iot.project.Product.ProductNotFoundException;
 import com.iot.project.Product.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -29,21 +31,10 @@ public class QualityCaseService {
 
     @Transactional
     public QualityCaseResponse create(QualityCaseCreateRequest request) {
-        if (request.defectQuantity() > request.productionQuantity()) {
-            throw new InvalidDefectQuantityException(request.productionQuantity(), request.defectQuantity());
-        }
-        Product product = productRepository.findById(request.productId())
-                .orElseThrow(() -> new ProductNotFoundException(request.productId()));
-        ManufacturingProcess process = manufacturingProcessRepository.findById(request.processId())
-                .orElseThrow(() -> new ManufacturingProcessNotFoundException(request.processId()));
-        Equipment equipment = null;
-        if (request.equipmentId() != null) {
-            equipment = equipmentRepository.findById(request.equipmentId())
-                    .orElseThrow(() -> new EquipmentNotFoundException(request.equipmentId()));
-            if (!equipment.getManufacturingProcess().getId().equals(process.getId())) {
-                throw new EquipmentProcessMismatchException(equipment.getId(), process.getId());
-            }
-        }
+        validateQuantity(request.productionQuantity(), request.defectQuantity());
+        Product product = getProduct(request.productId());
+        ManufacturingProcess process = getProcess(request.processId());
+        Equipment equipment = getEquipmentInProcess(request.equipmentId(), process);
 
         QualityCase qualityCase = new QualityCase(generateCaseCode(), product, process, equipment,
                 request.lotNo(), request.title(), request.problemDescription(), request.defectType(),
@@ -51,10 +42,38 @@ public class QualityCaseService {
         return QualityCaseResponse.from(qualityCaseRepository.save(qualityCase));
     }
 
+    // 최신 등록 사례가 먼저 오도록 id 내림차순
+    @Transactional(readOnly = true)
+    public List<QualityCaseResponse> findAll() {
+        return qualityCaseRepository.findAll(Sort.by(Sort.Direction.DESC, "id")).stream()
+                .map(QualityCaseResponse::from).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public QualityCaseResponse findById(Long id) {
+        return QualityCaseResponse.from(getQualityCase(id));
+    }
+
+    @Transactional
+    public QualityCaseResponse update(Long id, QualityCaseUpdateRequest request) {
+        QualityCase qualityCase = getQualityCase(id);
+        if (qualityCase.getStatus() == CaseStatus.RESOLVED) {
+            throw new ResolvedQualityCaseUpdateException(id);
+        }
+        validateQuantity(request.productionQuantity(), request.defectQuantity());
+        Product product = getProduct(request.productId());
+        ManufacturingProcess process = getProcess(request.processId());
+        Equipment equipment = getEquipmentInProcess(request.equipmentId(), process);
+
+        qualityCase.update(product, process, equipment, request.lotNo(), request.title(),
+                request.problemDescription(), request.defectType(), request.productionQuantity(),
+                request.defectQuantity(), request.occurredAt());
+        return QualityCaseResponse.from(qualityCase);
+    }
+
     @Transactional
     public void delete(Long id) {
-        QualityCase qualityCase = qualityCaseRepository.findById(id)
-                .orElseThrow(() -> new QualityCaseNotFoundException(id));
+        QualityCase qualityCase = getQualityCase(id);
         if (qualityCase.getStatus() == CaseStatus.RESOLVED) {
             throw new ResolvedQualityCaseDeleteException(id);
         }
@@ -65,6 +84,40 @@ public class QualityCaseService {
         } catch (DataIntegrityViolationException e) {
             throw new QualityCaseInUseException(id);
         }
+    }
+
+    private QualityCase getQualityCase(Long id) {
+        return qualityCaseRepository.findById(id)
+                .orElseThrow(() -> new QualityCaseNotFoundException(id));
+    }
+
+    private static void validateQuantity(Integer productionQuantity, Integer defectQuantity) {
+        if (defectQuantity > productionQuantity) {
+            throw new InvalidDefectQuantityException(productionQuantity, defectQuantity);
+        }
+    }
+
+    private Product getProduct(Long productId) {
+        return productRepository.findById(productId)
+                .orElseThrow(() -> new ProductNotFoundException(productId));
+    }
+
+    private ManufacturingProcess getProcess(Long processId) {
+        return manufacturingProcessRepository.findById(processId)
+                .orElseThrow(() -> new ManufacturingProcessNotFoundException(processId));
+    }
+
+    // 설비는 선택 항목. 지정했다면 사례의 공정에 속해야 한다
+    private Equipment getEquipmentInProcess(Long equipmentId, ManufacturingProcess process) {
+        if (equipmentId == null) {
+            return null;
+        }
+        Equipment equipment = equipmentRepository.findById(equipmentId)
+                .orElseThrow(() -> new EquipmentNotFoundException(equipmentId));
+        if (!equipment.getManufacturingProcess().getId().equals(process.getId())) {
+            throw new EquipmentProcessMismatchException(equipment.getId(), process.getId());
+        }
+        return equipment;
     }
 
     // 순번이 아닌 랜덤값이라 동시 등록에도 충돌하지 않는다 (가상 사례 생성기 도입 시 재검토)

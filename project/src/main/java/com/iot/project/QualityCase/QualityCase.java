@@ -114,4 +114,21 @@ public class QualityCase {
         this.createdAt = LocalDateTime.now();
         this.updatedAt = this.createdAt;
     }
+
+    // OPEN 사례의 등록 정보 수정 (사례번호, 상태, 원인/조치/결과는 건드리지 않는다)
+    public void update(Product product, ManufacturingProcess manufacturingProcess, Equipment equipment,
+                       String lotNo, String title, String problemDescription, String defectType,
+                       Integer productionQuantity, Integer defectQuantity, LocalDateTime occurredAt) {
+        this.product = product;
+        this.manufacturingProcess = manufacturingProcess;
+        this.equipment = equipment;
+        this.lotNo = lotNo;
+        this.title = title;
+        this.problemDescription = problemDescription;
+        this.defectType = defectType;
+        this.productionQuantity = productionQuantity;
+        this.defectQuantity = defectQuantity;
+        this.occurredAt = occurredAt;
+        this.updatedAt = LocalDateTime.now();
+    }
 }

@@ -15,6 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -117,5 +119,58 @@ class EquipmentControllerTest {
 
         mockMvc.perform(delete("/api/equipments/{id}", equipmentId))
                 .andExpect(status().isConflict());
+    }
+
+    @Test
+    void 공정별_설비_목록_조회() throws Exception {
+        createEquipment();
+        mockMvc.perform(get("/api/processes/{id}/equipments", processId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].equipmentCode").value("TEST-EQ-001"));
+    }
+
+    @Test
+    void 없는_공정의_설비_목록_조회시_404() throws Exception {
+        mockMvc.perform(get("/api/processes/{id}/equipments", Long.MAX_VALUE))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void 설비_단건_조회() throws Exception {
+        Long id = createEquipment();
+        mockMvc.perform(get("/api/equipments/{id}", id))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(id))
+                .andExpect(jsonPath("$.processId").value(processId));
+    }
+
+    @Test
+    void 없는_설비_조회시_404() throws Exception {
+        mockMvc.perform(get("/api/equipments/{id}", Long.MAX_VALUE))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void 설비_수정시_보낸_값으로_교체되고_코드와_공정은_유지() throws Exception {
+        Long id = createEquipment();
+        mockMvc.perform(patch("/api/equipments/{id}", id).contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name": "용접기 1호 (교체)", "description": "2026-10 교체"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.equipmentCode").value("TEST-EQ-001"))
+                .andExpect(jsonPath("$.processId").value(processId))
+                .andExpect(jsonPath("$.name").value("용접기 1호 (교체)"))
+                .andExpect(jsonPath("$.description").value("2026-10 교체"));
+    }
+
+    @Test
+    void 없는_설비_수정시_404() throws Exception {
+        mockMvc.perform(patch("/api/equipments/{id}", Long.MAX_VALUE).contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name": "용접기 1호"}
+                                """))
+                .andExpect(status().isNotFound());
     }
 }

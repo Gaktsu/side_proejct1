@@ -11,7 +11,10 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasItem;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -93,5 +96,50 @@ class ManufacturingProcessControllerTest {
 
         mockMvc.perform(delete("/api/processes/{id}", id))
                 .andExpect(status().isConflict());
+    }
+
+    @Test
+    void 공정_목록_조회() throws Exception {
+        createProcess();
+        mockMvc.perform(get("/api/processes"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[*].processCode").value(hasItem("TEST-PR-001")));
+    }
+
+    @Test
+    void 공정_단건_조회() throws Exception {
+        Long id = createProcess();
+        mockMvc.perform(get("/api/processes/{id}", id))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(id))
+                .andExpect(jsonPath("$.name").value("용접"));
+    }
+
+    @Test
+    void 없는_공정_조회시_404() throws Exception {
+        mockMvc.perform(get("/api/processes/{id}", Long.MAX_VALUE))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void 공정_수정시_보낸_값으로_교체되고_코드는_유지() throws Exception {
+        Long id = createProcess();
+        mockMvc.perform(patch("/api/processes/{id}", id).contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name": "아크 용접"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.processCode").value("TEST-PR-001"))
+                .andExpect(jsonPath("$.name").value("아크 용접"))
+                .andExpect(jsonPath("$.description").doesNotExist());
+    }
+
+    @Test
+    void 없는_공정_수정시_404() throws Exception {
+        mockMvc.perform(patch("/api/processes/{id}", Long.MAX_VALUE).contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name": "아크 용접"}
+                                """))
+                .andExpect(status().isNotFound());
     }
 }

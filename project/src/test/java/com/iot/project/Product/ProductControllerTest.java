@@ -10,7 +10,10 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
+import static org.hamcrest.Matchers.hasItem;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -93,5 +96,51 @@ class ProductControllerTest {
 
         mockMvc.perform(delete("/api/products/{id}", productId))
                 .andExpect(status().isConflict());
+    }
+
+    @Test
+    void 제품_목록_조회() throws Exception {
+        createProduct();
+        mockMvc.perform(get("/api/products"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[*].productCode").value(hasItem("TEST-P-001")));
+    }
+
+    @Test
+    void 제품_단건_조회() throws Exception {
+        Long id = createProduct();
+        mockMvc.perform(get("/api/products/{id}", id))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(id))
+                .andExpect(jsonPath("$.name").value("브레이크 캘리퍼"));
+    }
+
+    @Test
+    void 없는_제품_조회시_404() throws Exception {
+        mockMvc.perform(get("/api/products/{id}", Long.MAX_VALUE))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void 제품_수정시_보낸_값으로_교체되고_코드는_유지() throws Exception {
+        Long id = createProduct();
+        mockMvc.perform(patch("/api/products/{id}", id).contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name": "디스크 브레이크", "description": "수정됨"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.productCode").value("TEST-P-001"))
+                .andExpect(jsonPath("$.name").value("디스크 브레이크"))
+                .andExpect(jsonPath("$.modelName").doesNotExist())
+                .andExpect(jsonPath("$.description").value("수정됨"));
+    }
+
+    @Test
+    void 없는_제품_수정시_404() throws Exception {
+        mockMvc.perform(patch("/api/products/{id}", Long.MAX_VALUE).contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name": "디스크 브레이크"}
+                                """))
+                .andExpect(status().isNotFound());
     }
 }

@@ -46,4 +46,11 @@ public class Product {
         this.description = description;
         this.createdAt = LocalDateTime.now();
     }
+
+    // 제품 코드는 식별자라 수정하지 않는다
+    public void update(String name, String modelName, String description) {
+        this.name = name;
+        this.modelName = modelName;
+        this.description = description;
+    }
 }

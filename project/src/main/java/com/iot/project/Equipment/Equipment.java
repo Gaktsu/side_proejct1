@@ -48,4 +48,10 @@ public class Equipment {
         this.description = description;
         this.createdAt = LocalDateTime.now();
     }
+
+    // 설비 코드와 소속 공정은 수정하지 않는다 (공정을 바꾸면 이 설비를 쓰는 품질사례의 공정과 어긋난다)
+    public void update(String name, String description) {
+        this.name = name;
+        this.description = description;
+    }
 }

@@ -8,6 +8,8 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class EquipmentService {
@@ -31,10 +33,30 @@ public class EquipmentService {
         }
     }
 
+    @Transactional(readOnly = true)
+    public List<EquipmentResponse> findAllByProcess(Long processId) {
+        if (!manufacturingProcessRepository.existsById(processId)) {
+            throw new ManufacturingProcessNotFoundException(processId);
+        }
+        return equipmentRepository.findByManufacturingProcessIdOrderByIdAsc(processId).stream()
+                .map(EquipmentResponse::from).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public EquipmentResponse findById(Long id) {
+        return EquipmentResponse.from(getEquipment(id));
+    }
+
+    @Transactional
+    public EquipmentResponse update(Long id, EquipmentUpdateRequest request) {
+        Equipment equipment = getEquipment(id);
+        equipment.update(request.name(), request.description());
+        return EquipmentResponse.from(equipment);
+    }
+
     @Transactional
     public void delete(Long id) {
-        Equipment equipment = equipmentRepository.findById(id)
-                .orElseThrow(() -> new EquipmentNotFoundException(id));
+        Equipment equipment = getEquipment(id);
         try {
             equipmentRepository.delete(equipment);
             // FK 위반을 커밋 시점이 아닌 여기서 감지하기 위해 즉시 flush
@@ -42,5 +64,10 @@ public class EquipmentService {
         } catch (DataIntegrityViolationException e) {
             throw new EquipmentInUseException(id);
         }
+    }
+
+    private Equipment getEquipment(Long id) {
+        return equipmentRepository.findById(id)
+                .orElseThrow(() -> new EquipmentNotFoundException(id));
     }
 }

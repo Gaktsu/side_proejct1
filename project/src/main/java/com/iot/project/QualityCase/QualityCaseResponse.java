@@ -16,7 +16,8 @@ public record QualityCaseResponse(
         Integer defectQuantity,
         CaseStatus status,
         LocalDateTime occurredAt,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        LocalDateTime updatedAt
 ) {
     public static QualityCaseResponse from(QualityCase qualityCase) {
         return new QualityCaseResponse(qualityCase.getId(), qualityCase.getCaseCode(),
@@ -25,6 +26,6 @@ public record QualityCaseResponse(
                 qualityCase.getLotNo(), qualityCase.getTitle(), qualityCase.getProblemDescription(),
                 qualityCase.getDefectType(), qualityCase.getProductionQuantity(),
                 qualityCase.getDefectQuantity(), qualityCase.getStatus(), qualityCase.getOccurredAt(),
-                qualityCase.getCreatedAt());
+                qualityCase.getCreatedAt(), qualityCase.getUpdatedAt());
     }
 }

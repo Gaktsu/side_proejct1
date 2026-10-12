@@ -20,7 +20,10 @@ import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasItem;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -28,7 +31,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
-class TQualityCaseControllerTest {
+class QualityCaseControllerTest {
 
     @Autowired
     MockMvc mockMvc;
@@ -191,5 +194,97 @@ class TQualityCaseControllerTest {
 
         mockMvc.perform(delete("/api/products/{id}", productId))
                 .andExpect(status().isConflict());
+    }
+
+    private ResultActions patchCase(Long id, Long equipmentId, int production, int defect) throws Exception {
+        return mockMvc.perform(patch("/api/quality-cases/{id}", id).contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {
+                          "productId": %s, "processId": %s, "equipmentId": %s,
+                          "lotNo": "LOT-20261005-02", "title": "용접부 균열 (재확인)",
+                          "problemDescription": "재검사 결과 균열 길이 2mm",
+                          "defectType": "크랙", "productionQuantity": %d, "defectQuantity": %d,
+                          "occurredAt": "2026-10-05T10:00:00"
+                        }
+                        """.formatted(productId, processId, equipmentId, production, defect)));
+    }
+
+    @Test
+    void 품질사례_목록_조회() throws Exception {
+        Long id = createCase();
+        mockMvc.perform(get("/api/quality-cases"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[*].id").value(hasItem(id.intValue())));
+    }
+
+    @Test
+    void 품질사례_단건_조회() throws Exception {
+        Long id = createCase();
+        mockMvc.perform(get("/api/quality-cases/{id}", id))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(id))
+                .andExpect(jsonPath("$.title").value("용접부 미세 균열"))
+                .andExpect(jsonPath("$.updatedAt").exists());
+    }
+
+    @Test
+    void 없는_품질사례_조회시_404() throws Exception {
+        mockMvc.perform(get("/api/quality-cases/{id}", Long.MAX_VALUE))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void 품질사례_수정시_보낸_값으로_교체되고_사례번호와_상태는_유지() throws Exception {
+        String json = postCase(productId, processId, equipmentId, 100, 3)
+                .andReturn().getResponse().getContentAsString();
+        Long id = ((Number) JsonPath.read(json, "$.id")).longValue();
+        String caseCode = JsonPath.read(json, "$.caseCode");
+
+        patchCase(id, null, 200, 5)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.caseCode").value(caseCode))
+                .andExpect(jsonPath("$.status").value("OPEN"))
+                .andExpect(jsonPath("$.equipmentId").doesNotExist())
+                .andExpect(jsonPath("$.title").value("용접부 균열 (재확인)"))
+                .andExpect(jsonPath("$.productionQuantity").value(200))
+                .andExpect(jsonPath("$.defectQuantity").value(5));
+    }
+
+    @Test
+    void 없는_품질사례_수정시_404() throws Exception {
+        patchCase(Long.MAX_VALUE, equipmentId, 100, 3)
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void RESOLVED_품질사례_수정시_409() throws Exception {
+        Long id = createCase();
+        jdbcTemplate.update("UPDATE quality_case SET status = 'RESOLVED' WHERE id = ?", id);
+        entityManager.clear();
+
+        patchCase(id, equipmentId, 100, 3)
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.detail").value("해결 완료(RESOLVED)된 품질사례는 수정할 수 없습니다. id=" + id));
+    }
+
+    @Test
+    void 수정시_불량수량이_생산수량보다_크면_400() throws Exception {
+        Long id = createCase();
+        patchCase(id, equipmentId, 10, 11)
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void 수정시_설비가_다른_공정_소속이면_400() throws Exception {
+        Long id = createCase();
+        patchCase(id, otherProcessEquipmentId, 100, 3)
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void 수정시_없는_설비면_404() throws Exception {
+        Long id = createCase();
+        patchCase(id, Long.MAX_VALUE, 100, 3)
+                .andExpect(status().isNotFound());
     }
 }
