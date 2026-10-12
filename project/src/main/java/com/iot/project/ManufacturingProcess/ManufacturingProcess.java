@@ -41,4 +41,10 @@ public class ManufacturingProcess {
         this.description = description;
         this.createdAt = LocalDateTime.now();
     }
+
+    // 공정 코드는 식별자라 수정하지 않는다
+    public void update(String name, String description) {
+        this.name = name;
+        this.description = description;
+    }
 }

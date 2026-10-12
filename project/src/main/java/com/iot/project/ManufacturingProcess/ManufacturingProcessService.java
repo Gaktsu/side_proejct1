@@ -2,8 +2,11 @@ package com.iot.project.ManufacturingProcess;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -24,10 +27,26 @@ public class ManufacturingProcessService {
         }
     }
 
+    @Transactional(readOnly = true)
+    public List<ManufacturingProcessResponse> findAll() {
+        return manufacturingProcessRepository.findAll(Sort.by("id")).stream().map(ManufacturingProcessResponse::from).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public ManufacturingProcessResponse findById(Long id) {
+        return ManufacturingProcessResponse.from(getProcess(id));
+    }
+
+    @Transactional
+    public ManufacturingProcessResponse update(Long id, ManufacturingProcessUpdateRequest request) {
+        ManufacturingProcess process = getProcess(id);
+        process.update(request.name(), request.description());
+        return ManufacturingProcessResponse.from(process);
+    }
+
     @Transactional
     public void delete(Long id) {
-        ManufacturingProcess process = manufacturingProcessRepository.findById(id)
-                .orElseThrow(() -> new ManufacturingProcessNotFoundException(id));
+        ManufacturingProcess process = getProcess(id);
         try {
             manufacturingProcessRepository.delete(process);
             // FK 위반을 커밋 시점이 아닌 여기서 감지하기 위해 즉시 flush
@@ -35,5 +54,10 @@ public class ManufacturingProcessService {
         } catch (DataIntegrityViolationException e) {
             throw new ManufacturingProcessInUseException(id);
         }
+    }
+
+    private ManufacturingProcess getProcess(Long id) {
+        return manufacturingProcessRepository.findById(id)
+                .orElseThrow(() -> new ManufacturingProcessNotFoundException(id));
     }
 }

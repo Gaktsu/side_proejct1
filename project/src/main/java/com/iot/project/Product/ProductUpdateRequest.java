@@ -1,0 +1,12 @@
+package com.iot.project.Product;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
+// 수정 가능한 필드를 모두 받아 통째로 교체한다 (제품 코드는 수정 불가)
+public record ProductUpdateRequest(
+        @NotBlank @Size(max = 100) String name,
+        @Size(max = 100) String modelName,
+        String description
+) {
+}

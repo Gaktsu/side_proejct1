@@ -5,6 +5,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/quality-cases")
 @RequiredArgsConstructor
@@ -16,6 +18,21 @@ public class QualityCaseController {
     @ResponseStatus(HttpStatus.CREATED)
     public QualityCaseResponse create(@Valid @RequestBody QualityCaseCreateRequest request) {
         return qualityCaseService.create(request);
+    }
+
+    @GetMapping
+    public List<QualityCaseResponse> findAll() {
+        return qualityCaseService.findAll();
+    }
+
+    @GetMapping("/{id}")
+    public QualityCaseResponse findById(@PathVariable Long id) {
+        return qualityCaseService.findById(id);
+    }
+
+    @PatchMapping("/{id}")
+    public QualityCaseResponse update(@PathVariable Long id, @Valid @RequestBody QualityCaseUpdateRequest request) {
+        return qualityCaseService.update(id, request);
     }
 
     @DeleteMapping("/{id}")
