@@ -1,0 +1,93 @@
+package com.iot.project.qdrant;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClient;
+
+import java.util.List;
+import java.util.Map;
+
+// Qdrant REST API 호출. 컬렉션 하나(quality_case_vectors)를 대상으로 하며 Point ID = QualityCase.id
+@Component
+public class QdrantClient {
+
+    static final int VECTOR_SIZE = 1024;
+    static final String DISTANCE = "Cosine";
+
+    private final RestClient restClient;
+    private final String collection;
+
+    public QdrantClient(@Value("${qdrant.url}") String url,
+                        @Value("${qdrant.collection:quality_case_vectors}") String collection) {
+        this.restClient = RestClient.builder().baseUrl(url).build();
+        this.collection = collection;
+    }
+
+    // 컬렉션이 없으면 생성하고, 있으면 벡터 설정이 같은지 확인한다
+    public void ensureCollection() {
+        boolean exists = restClient.get()
+                .uri("/collections/{name}/exists", collection)
+                .retrieve()
+                .body(ExistsResponse.class)
+                .result().exists();
+
+        if (!exists) {
+            restClient.put()
+                    .uri("/collections/{name}", collection)
+                    .body(Map.of("vectors", new VectorParams(VECTOR_SIZE, DISTANCE)))
+                    .retrieve()
+                    .toBodilessEntity();
+            return;
+        }
+
+        VectorParams vectors = restClient.get()
+                .uri("/collections/{name}", collection)
+                .retrieve()
+                .body(CollectionInfoResponse.class)
+                .result().config().params().vectors();
+        if (vectors.size() != VECTOR_SIZE || !DISTANCE.equals(vectors.distance())) {
+            throw new QdrantCollectionMismatchException(collection, vectors.size(), vectors.distance());
+        }
+    }
+
+    // 같은 id가 있으면 덮어쓴다. wait=true: 반영이 끝난 뒤 응답 → 직후 검색에 바로 보임
+    public void upsert(long id, float[] vector) {
+        restClient.put()
+                .uri("/collections/{name}/points?wait=true", collection)
+                .body(Map.of("points", List.of(new Point(id, vector))))
+                .retrieve()
+                .toBodilessEntity();
+    }
+
+    public List<ScoredPoint> search(float[] vector, int limit) {
+        return restClient.post()
+                .uri("/collections/{name}/points/query", collection)
+                .body(Map.of("query", vector, "limit", limit))
+                .retrieve()
+                .body(QueryResponse.class)
+                .result().points();
+    }
+
+    public void delete(long id) {
+        restClient.post()
+                .uri("/collections/{name}/points/delete?wait=true", collection)
+                .body(Map.of("points", List.of(id)))
+                .retrieve()
+                .toBodilessEntity();
+    }
+
+    // Qdrant 요청/응답 JSON 중 사용하는 필드만 매핑
+    private record VectorParams(int size, String distance) {}
+    private record Point(long id, float[] vector) {}
+
+    private record ExistsResponse(Exists result) {}
+    private record Exists(boolean exists) {}
+
+    private record CollectionInfoResponse(CollectionInfo result) {}
+    private record CollectionInfo(CollectionConfig config) {}
+    private record CollectionConfig(CollectionParams params) {}
+    private record CollectionParams(VectorParams vectors) {}
+
+    private record QueryResponse(QueryResult result) {}
+    private record QueryResult(List<ScoredPoint> points) {}
+}
