@@ -10,14 +10,20 @@ AI 기반 품질사례 지식화 및 원인조사 지원 시스템 (12주 MVP). 
 
 현재 상태: 엔티티 7개 + Flyway V1 스키마. API는 Product / ManufacturingProcess / Equipment / QualityCase의 **등록·조회·수정·삭제** 구현됨 (수정은 PATCH로 수정 가능 필드 전체를 받아 교체, 코드·설비 소속 공정은 수정 불가, 목록은 페이징·필터 없음). QualityCase의 `caseCode`는 서버가 `QC-yyyyMMdd-랜덤8자리`로 임시 생성 (추후 가상 사례 생성기에서 재검토). 나머지 엔티티는 Repository/Service/Controller 없음. 새 API 작업 흐름(구현 규칙, 테스트, `diagrams/` 순서도)은 `.claude/skills/domain-api-feature` 스킬을 따른다. 구현 순서는 Product → Process → Equipment → QualityCase → InspectionResult → Analysis → AnalysisCandidate, 이후 React → Embedding → Qdrant → JEV → RAG → LLM. MVP에서 로그인/권한, 비동기 처리는 제외.
 
+Qdrant 연결은 순서를 앞당겨 클라이언트만 구현됨 (`com.iot.project.qdrant`): `QdrantClient`(RestClient로 컬렉션 확인/생성, upsert, search, delete)와 기동 시 컬렉션 확인(`QdrantCollectionInitializer`). 아직 호출하는 곳은 없다 — resolve 시 적재·유사 사례 검색은 Embedding 이후 연결. 기동 시 Qdrant가 꺼져 있거나 컬렉션 설정이 1024/Cosine이 아니면 **앱 전체 기동이 실패**한다. 모노리스 결합 문제를 관찰하려고 의도적으로 유지 중이니 임의로 지연 확인 등으로 바꾸지 않는다. Embedding도 먼저 Spring 안에 통합(모노리스)해 불편함을 확인한 뒤 분리 여부를 판단할 예정.
+
+로컬 Docker: 프로젝트 루트의 `compose.yaml`(mysql:8.0 / qdrant v1.19.1 / quality-app)과 `.env`(DB 비밀번호)는 gitignore 대상이라 저장소에 없다. 컨테이너에는 `application.properties`가 없으므로(`.dockerignore`) 설정은 환경변수로 받는다 — 환경마다 다른 값(`SPRING_DATASOURCE_*`, `QDRANT_URL`)은 compose 환경변수, 어디서나 같은 값은 코드 기본값(`qdrant.collection:quality_case_vectors`). **새 설정 키를 추가하면 컨테이너에서 받을 곳도 함께 정한다** (테스트는 호스트 `application.properties`를 읽어 이 누락을 잡지 못한다).
+
 ## 명령어
 
 ```bash
 ./gradlew build                     # 빌드 + 테스트
-./gradlew bootRun                   # 실행 (로컬 MySQL 필요)
+./gradlew bootRun                   # 실행 (로컬 MySQL + Qdrant localhost:6333 필요)
 ./gradlew test --tests "com.iot.project.ProjectApplicationTests"   # 단일 테스트 클래스
 ./gradlew test --tests "*ClassName.methodName"                      # 단일 메서드
 ```
+
+테스트는 전부 `@SpringBootTest`라 **MySQL과 Qdrant가 둘 다 떠 있어야** 통과한다 (`docker compose up -d qdrant`). `QdrantClientTest`는 `test_quality_case_vectors` 컬렉션을 쓰고 매번 삭제한다. compose의 `quality-app`이 실행 중이면 호스트 8080이 점유되어 `bootRun`이 실패하므로 먼저 `docker compose stop quality-app`.
 
 스택: Java 21, Spring Boot 4.1.1, Spring Data JPA, Validation, Flyway, MySQL, Lombok.
 
