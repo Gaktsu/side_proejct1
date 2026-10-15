@@ -88,6 +88,17 @@ class QdrantClientTest {
     }
 
     @Test
+    void 첫_사용_시_컬렉션_자동_생성() {
+        dropCollection();
+        // 공유 빈은 이전 테스트에서 이미 확인됨(collectionReady=true) → 새 인스턴스로 첫 사용 상황을 만든다
+        QdrantClient fresh = new QdrantClient(qdrantUrl, COLLECTION);
+
+        fresh.upsert(1L, vector(0));
+
+        assertThat(pointCount()).isEqualTo(1);
+    }
+
+    @Test
     void 컬렉션_설정이_다르면_예외() {
         dropCollection();
         raw.put().uri("/collections/{name}", COLLECTION)
