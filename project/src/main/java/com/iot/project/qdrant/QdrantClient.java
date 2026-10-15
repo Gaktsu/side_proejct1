@@ -16,6 +16,7 @@ public class QdrantClient {
 
     private final RestClient restClient;
     private final String collection;
+    private volatile boolean collectionReady;
 
     public QdrantClient(@Value("${qdrant.url}") String url,
                         @Value("${qdrant.collection:quality_case_vectors}") String collection) {
@@ -50,8 +51,19 @@ public class QdrantClient {
         }
     }
 
+    // 첫 사용 시 1회 확인 (앱 기동과 분리). 실패하면 false로 남아 다음 호출 때 다시 확인한다
+    private void ensureReady() {
+        if (collectionReady) return;
+        synchronized (this) {
+            if (collectionReady) return;
+            ensureCollection();
+            collectionReady = true;
+        }
+    }
+
     // 같은 id가 있으면 덮어쓴다. wait=true: 반영이 끝난 뒤 응답 → 직후 검색에 바로 보임
     public void upsert(long id, float[] vector) {
+        ensureReady();
         restClient.put()
                 .uri("/collections/{name}/points?wait=true", collection)
                 .body(Map.of("points", List.of(new Point(id, vector))))
@@ -60,6 +72,7 @@ public class QdrantClient {
     }
 
     public List<ScoredPoint> search(float[] vector, int limit) {
+        ensureReady();
         return restClient.post()
                 .uri("/collections/{name}/points/query", collection)
                 .body(Map.of("query", vector, "limit", limit))
@@ -69,6 +82,7 @@ public class QdrantClient {
     }
 
     public void delete(long id) {
+        ensureReady();
         restClient.post()
                 .uri("/collections/{name}/points/delete?wait=true", collection)
                 .body(Map.of("points", List.of(id)))

@@ -1,6 +1,6 @@
 package com.iot.project.qdrant;
 
-// 기존 컬렉션의 벡터 설정이 현재 임베딩 규칙(1024차원, Cosine)과 다를 때. 기동을 중단시킨다
+// 기존 컬렉션의 벡터 설정이 현재 임베딩 규칙(1024차원, Cosine)과 다를 때. 해당 Qdrant 호출만 실패시킨다
 public class QdrantCollectionMismatchException extends IllegalStateException {
     public QdrantCollectionMismatchException(String collection, int size, String distance) {
         super("Qdrant 컬렉션 설정이 다릅니다. collection=" + collection
