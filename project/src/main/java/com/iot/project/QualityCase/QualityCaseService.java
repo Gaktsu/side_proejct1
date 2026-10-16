@@ -9,7 +9,11 @@ import com.iot.project.ManufacturingProcess.ManufacturingProcessRepository;
 import com.iot.project.Product.Product;
 import com.iot.project.Product.ProductNotFoundException;
 import com.iot.project.Product.ProductRepository;
+import com.iot.project.embedding.EmbeddingClient;
+import com.iot.project.embedding.EmbeddingInputTooLongException;
+import com.iot.project.qdrant.QdrantClient;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -20,6 +24,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class QualityCaseService {
@@ -28,6 +33,8 @@ public class QualityCaseService {
     private final ProductRepository productRepository;
     private final ManufacturingProcessRepository manufacturingProcessRepository;
     private final EquipmentRepository equipmentRepository;
+    private final EmbeddingClient embeddingClient;
+    private final QdrantClient qdrantClient;
 
     @Transactional
     public QualityCaseResponse create(QualityCaseCreateRequest request) {
@@ -84,6 +91,34 @@ public class QualityCaseService {
         } catch (DataIntegrityViolationException e) {
             throw new QualityCaseInUseException(id);
         }
+    }
+
+    // 확정 → 문서 텍스트 임베딩 → Qdrant 적재. 임베딩/적재가 실패하면 전체 롤백되어 OPEN으로 남는다
+    @Transactional
+    public QualityCaseResponse resolve(Long id, QualityCaseResolveRequest request) {
+        QualityCase qualityCase = qualityCaseRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new QualityCaseNotFoundException(id));
+        if (qualityCase.getStatus() == CaseStatus.RESOLVED) {
+            throw new QualityCaseAlreadyResolvedException(id);
+        }
+        qualityCase.resolve(request.rootCause(), request.correctiveAction(), request.resultSummary());
+        // UPDATE를 Qdrant 호출 전에 실행해 DB 오류가 벡터 적재 뒤에 터지지 않게 한다
+        qualityCaseRepository.flush();
+
+        try {
+            long start = System.nanoTime();
+            float[] vector = embeddingClient.embedDocument(QualityCaseDocument.toText(qualityCase));
+            long embedded = System.nanoTime();
+            qdrantClient.upsert(qualityCase.getId(), vector);
+            log.info("resolve 적재 id={}, 임베딩 {}ms, upsert {}ms", id,
+                    (embedded - start) / 1_000_000, (System.nanoTime() - embedded) / 1_000_000);
+        } catch (EmbeddingInputTooLongException e) {
+            // 다시 시도해도 같은 결과라 503으로 바꾸지 않는다 (롤백되어 OPEN 유지)
+            throw e;
+        } catch (RuntimeException e) {
+            throw new VectorIndexingException(id, e);
+        }
+        return QualityCaseResponse.from(qualityCase);
     }
 
     private QualityCase getQualityCase(Long id) {
