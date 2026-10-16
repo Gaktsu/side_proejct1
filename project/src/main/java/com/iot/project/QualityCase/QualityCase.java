@@ -131,4 +131,13 @@ public class QualityCase {
         this.occurredAt = occurredAt;
         this.updatedAt = LocalDateTime.now();
     }
+
+    // 담당자가 최종 원인/조치/결과를 확정한다 (결과는 조치 직후 모를 수 있어 선택)
+    public void resolve(String rootCause, String correctiveAction, String resultSummary) {
+        this.rootCause = rootCause;
+        this.correctiveAction = correctiveAction;
+        this.resultSummary = resultSummary;
+        this.status = CaseStatus.RESOLVED;
+        this.updatedAt = LocalDateTime.now();
+    }
 }

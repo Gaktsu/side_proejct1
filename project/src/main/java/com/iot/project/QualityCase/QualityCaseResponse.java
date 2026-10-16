@@ -14,6 +14,9 @@ public record QualityCaseResponse(
         String defectType,
         Integer productionQuantity,
         Integer defectQuantity,
+        String rootCause,
+        String correctiveAction,
+        String resultSummary,
         CaseStatus status,
         LocalDateTime occurredAt,
         LocalDateTime createdAt,
@@ -25,7 +28,8 @@ public record QualityCaseResponse(
                 qualityCase.getEquipment() == null ? null : qualityCase.getEquipment().getId(),
                 qualityCase.getLotNo(), qualityCase.getTitle(), qualityCase.getProblemDescription(),
                 qualityCase.getDefectType(), qualityCase.getProductionQuantity(),
-                qualityCase.getDefectQuantity(), qualityCase.getStatus(), qualityCase.getOccurredAt(),
+                qualityCase.getDefectQuantity(), qualityCase.getRootCause(), qualityCase.getCorrectiveAction(),
+                qualityCase.getResultSummary(), qualityCase.getStatus(), qualityCase.getOccurredAt(),
                 qualityCase.getCreatedAt(), qualityCase.getUpdatedAt());
     }
 }

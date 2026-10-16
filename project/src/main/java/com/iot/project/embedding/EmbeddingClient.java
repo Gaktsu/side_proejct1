@@ -19,7 +19,9 @@ import java.util.Map;
 @Component
 public class EmbeddingClient {
 
-    static final int MAX_TOKENS = 6144;
+    // 모델 최대는 6144지만 attention 비용이 토큰 수의 제곱으로 늘어 1024로 제한 (2026-10-16 측정:
+    // 1133토큰 8초/+300MB, 2145토큰 21.6초/+1.2GB, 6144토큰은 15GB 노트북에서 OOM). 늘어난 메모리는 반환되지 않는다
+    static final int MAX_TOKENS = 1024;
     private static final String QUERY_PREFIX = "query: ";
 
     private final String modelDir;
@@ -44,6 +46,9 @@ public class EmbeddingClient {
     private float[] embed(String text) {
         Model m = model();
         Encoding encoding = m.tokenizer().encode(text);
+        if (encoding.getIds().length > MAX_TOKENS) {
+            throw new EmbeddingInputTooLongException(encoding.getIds().length, MAX_TOKENS);
+        }
         OrtEnvironment env = OrtEnvironment.getEnvironment();
         try (OnnxTensor ids = OnnxTensor.createTensor(env, new long[][]{encoding.getIds()});
              OnnxTensor mask = OnnxTensor.createTensor(env, new long[][]{encoding.getAttentionMask()});
@@ -72,8 +77,9 @@ public class EmbeddingClient {
         try {
             HuggingFaceTokenizer tokenizer = HuggingFaceTokenizer.builder()
                     .optTokenizerPath(dir.resolve("tokenizer.json"))
-                    .optMaxLength(MAX_TOKENS)
-                    .optTruncation(true)
+                    // 자르지 않고 전체 토큰 수를 센다 (상한 검사는 embed에서). truncation을 켜면 DJL이
+                    // tokenizer_config.json이 없다는 이유로 상한을 512로 바꿔 경고만 남기고 잘라 버린다
+                    .optTruncation(false)
                     .build();
             OrtSession session = OrtEnvironment.getEnvironment()
                     .createSession(dir.resolve("model.onnx").toString(), new OrtSession.SessionOptions());

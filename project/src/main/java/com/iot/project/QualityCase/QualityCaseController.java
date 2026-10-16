@@ -35,6 +35,11 @@ public class QualityCaseController {
         return qualityCaseService.update(id, request);
     }
 
+    @PostMapping("/{id}/resolve")
+    public QualityCaseResponse resolve(@PathVariable Long id, @Valid @RequestBody QualityCaseResolveRequest request) {
+        return qualityCaseService.resolve(id, request);
+    }
+
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable Long id) {
