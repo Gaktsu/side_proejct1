@@ -37,6 +37,18 @@ class QualityCaseDocumentTest {
     }
 
     @Test
+    void 쿼리텍스트는_확정원인과_조치를_뺀다() {
+        Equipment equipment = new Equipment(process, "TEST-EQ-001", "용접기 1호", null);
+
+        assertThat(QualityCaseDocument.toQueryText(resolvedCase(equipment))).isEqualTo("""
+                공정: 용접
+                설비: 용접기 1호
+                제품: 브레이크 캘리퍼
+                증상: 크랙 - 용접부 미세 균열
+                관찰: 출하 검사에서 용접부 미세 균열 발견""");
+    }
+
+    @Test
     void 설비가_없으면_설비_줄_생략() {
         assertThat(QualityCaseDocument.toText(resolvedCase(null))).isEqualTo("""
                 공정: 용접

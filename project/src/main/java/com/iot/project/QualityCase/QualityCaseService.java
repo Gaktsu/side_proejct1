@@ -12,6 +12,7 @@ import com.iot.project.Product.ProductRepository;
 import com.iot.project.embedding.EmbeddingClient;
 import com.iot.project.embedding.EmbeddingInputTooLongException;
 import com.iot.project.qdrant.QdrantClient;
+import com.iot.project.qdrant.ScoredPoint;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -22,12 +23,17 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class QualityCaseService {
+
+    // 부정 조건을 못 가리는 임베딩 대신 JEV/LLM이 고를 수 있게 넉넉히 가져온다
+    static final int SIMILAR_TOP_K = 10;
 
     private final QualityCaseRepository qualityCaseRepository;
     private final ProductRepository productRepository;
@@ -119,6 +125,40 @@ public class QualityCaseService {
             throw new VectorIndexingException(id, e);
         }
         return QualityCaseResponse.from(qualityCase);
+    }
+
+    // OPEN 사례 → 쿼리 텍스트 임베딩 → Qdrant top-k → MySQL에서 RESOLVED만 남김 (Qdrant 순서 유지)
+    // RESOLVED 필터: resolve의 upsert 뒤 커밋이 실패하면 OPEN 사례 벡터가 Qdrant에 남으므로
+    // ponytail: 임베딩 동안 DB 커넥션을 쥠 (resolve와 같음), 동시 요청 측정에서 문제가 되면 임베딩을 트랜잭션 밖으로
+    @Transactional(readOnly = true)
+    public List<SimilarCaseResponse> findSimilar(Long id) {
+        QualityCase qualityCase = getQualityCase(id);
+        if (qualityCase.getStatus() == CaseStatus.RESOLVED) {
+            throw new ResolvedQualityCaseSearchException(id);
+        }
+
+        List<ScoredPoint> points;
+        try {
+            long start = System.nanoTime();
+            float[] vector = embeddingClient.embedQuery(QualityCaseDocument.toQueryText(qualityCase));
+            long embedded = System.nanoTime();
+            points = qdrantClient.search(vector, SIMILAR_TOP_K);
+            log.info("유사 사례 검색 id={}, 임베딩 {}ms, search {}ms, 후보 {}건", id,
+                    (embedded - start) / 1_000_000, (System.nanoTime() - embedded) / 1_000_000, points.size());
+        } catch (EmbeddingInputTooLongException e) {
+            throw e;
+        } catch (RuntimeException e) {
+            throw new VectorSearchException(id, e);
+        }
+
+        Map<Long, QualityCase> resolved = qualityCaseRepository.findAllById(points.stream().map(ScoredPoint::id).toList())
+                .stream()
+                .filter(c -> c.getStatus() == CaseStatus.RESOLVED)
+                .collect(Collectors.toMap(QualityCase::getId, c -> c));
+        return points.stream()
+                .filter(p -> resolved.containsKey(p.id()))
+                .map(p -> new SimilarCaseResponse(p.score(), QualityCaseResponse.from(resolved.get(p.id()))))
+                .toList();
     }
 
     private QualityCase getQualityCase(Long id) {

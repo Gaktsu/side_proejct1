@@ -40,6 +40,11 @@ public class QualityCaseController {
         return qualityCaseService.resolve(id, request);
     }
 
+    @GetMapping("/{id}/similar-cases")
+    public List<SimilarCaseResponse> findSimilar(@PathVariable Long id) {
+        return qualityCaseService.findSimilar(id);
+    }
+
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable Long id) {
