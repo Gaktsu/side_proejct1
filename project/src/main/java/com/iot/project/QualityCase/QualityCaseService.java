@@ -3,6 +3,8 @@ package com.iot.project.QualityCase;
 import com.iot.project.Equipment.Equipment;
 import com.iot.project.Equipment.EquipmentNotFoundException;
 import com.iot.project.Equipment.EquipmentRepository;
+import com.iot.project.IndexingJob.IndexingJob;
+import com.iot.project.IndexingJob.IndexingJobRepository;
 import com.iot.project.ManufacturingProcess.ManufacturingProcess;
 import com.iot.project.ManufacturingProcess.ManufacturingProcessNotFoundException;
 import com.iot.project.ManufacturingProcess.ManufacturingProcessRepository;
@@ -16,7 +18,6 @@ import com.iot.project.qdrant.ScoredPoint;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,6 +40,8 @@ public class QualityCaseService {
     private final ProductRepository productRepository;
     private final ManufacturingProcessRepository manufacturingProcessRepository;
     private final EquipmentRepository equipmentRepository;
+    private final IndexingJobRepository indexingJobRepository;
+    private final QualityCaseRevisionRepository revisionRepository;
     private final EmbeddingClient embeddingClient;
     private final QdrantClient qdrantClient;
 
@@ -55,33 +58,62 @@ public class QualityCaseService {
         return QualityCaseResponse.from(qualityCaseRepository.save(qualityCase));
     }
 
-    // 최신 등록 사례가 먼저 오도록 id 내림차순
+    // 최신 등록 사례가 먼저 오도록 id 내림차순, 현재 버전의 검색 반영 상태 포함
     @Transactional(readOnly = true)
     public List<QualityCaseResponse> findAll() {
-        return qualityCaseRepository.findAll(Sort.by(Sort.Direction.DESC, "id")).stream()
-                .map(QualityCaseResponse::from).toList();
+        return qualityCaseRepository.findAllWithCurrentJob().stream()
+                .map(row -> QualityCaseResponse.from((QualityCase) row[0], (IndexingJob) row[1])).toList();
     }
 
     @Transactional(readOnly = true)
     public QualityCaseResponse findById(Long id) {
-        return QualityCaseResponse.from(getQualityCase(id));
+        return qualityCaseRepository.findWithCurrentJobById(id).stream()
+                .map(row -> QualityCaseResponse.from((QualityCase) row[0], (IndexingJob) row[1]))
+                .findFirst()
+                .orElseThrow(() -> new QualityCaseNotFoundException(id));
     }
 
+    // OPEN: 등록 정보만 교체. RESOLVED: 직전 값을 이력에 남기고 원인/조치/결과까지 교체 → 새 버전 + 새 인덱싱 job
+    // 이전 버전 job이 진행 중이어도 막지 않는다 (처리기가 버전을 비교해 옛 job을 건너뜀)
     @Transactional
     public QualityCaseResponse update(Long id, QualityCaseUpdateRequest request) {
-        QualityCase qualityCase = getQualityCase(id);
-        if (qualityCase.getStatus() == CaseStatus.RESOLVED) {
-            throw new ResolvedQualityCaseUpdateException(id);
-        }
+        QualityCase qualityCase = qualityCaseRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new QualityCaseNotFoundException(id));
         validateQuantity(request.productionQuantity(), request.defectQuantity());
         Product product = getProduct(request.productId());
         ManufacturingProcess process = getProcess(request.processId());
         Equipment equipment = getEquipmentInProcess(request.equipmentId(), process);
 
-        qualityCase.update(product, process, equipment, request.lotNo(), request.title(),
+        if (qualityCase.getStatus() == CaseStatus.OPEN) {
+            if (request.rootCause() != null || request.correctiveAction() != null || request.resultSummary() != null) {
+                throw new InvalidResolutionFieldsException("OPEN 품질사례에는 원인·조치·결과를 넣을 수 없습니다. 해결 처리(/resolve)를 사용하세요. id=" + id);
+            }
+            qualityCase.update(product, process, equipment, request.lotNo(), request.title(),
+                    request.problemDescription(), request.defectType(), request.productionQuantity(),
+                    request.defectQuantity(), request.occurredAt());
+            return QualityCaseResponse.from(qualityCase);
+        }
+
+        if (isBlank(request.rootCause()) || isBlank(request.correctiveAction())) {
+            throw new InvalidResolutionFieldsException("해결된 품질사례를 수정할 때는 원인과 조치가 필요합니다. id=" + id);
+        }
+        revisionRepository.save(new QualityCaseRevision(qualityCase));
+        qualityCase.revise(product, process, equipment, request.lotNo(), request.title(),
                 request.problemDescription(), request.defectType(), request.productionQuantity(),
-                request.defectQuantity(), request.occurredAt());
-        return QualityCaseResponse.from(qualityCase);
+                request.defectQuantity(), request.occurredAt(),
+                request.rootCause(), request.correctiveAction(), request.resultSummary());
+        checkDocumentLength(qualityCase);
+        return QualityCaseResponse.from(qualityCase, indexingJobRepository.save(new IndexingJob(qualityCase)));
+    }
+
+    // 버전 내림차순. 보여주기만 하고 검색에는 쓰지 않는다
+    @Transactional(readOnly = true)
+    public List<QualityCaseRevisionResponse> findRevisions(Long id) {
+        if (!qualityCaseRepository.existsById(id)) {
+            throw new QualityCaseNotFoundException(id);
+        }
+        return revisionRepository.findByQualityCaseIdOrderByVersionDesc(id).stream()
+                .map(QualityCaseRevisionResponse::from).toList();
     }
 
     @Transactional
@@ -99,7 +131,8 @@ public class QualityCaseService {
         }
     }
 
-    // 확정 → 문서 텍스트 임베딩 → Qdrant 적재. 임베딩/적재가 실패하면 전체 롤백되어 OPEN으로 남는다
+    // 확정 + 인덱싱 job(PENDING/WAITING)을 한 트랜잭션으로 기록하고 바로 응답한다
+    // 임베딩·Qdrant는 커밋 뒤 IndexingWorker가 트랜잭션 밖에서 처리 (해결 완료와 검색 반영 완료는 별개)
     @Transactional
     public QualityCaseResponse resolve(Long id, QualityCaseResolveRequest request) {
         QualityCase qualityCase = qualityCaseRepository.findByIdForUpdate(id)
@@ -108,28 +141,25 @@ public class QualityCaseService {
             throw new QualityCaseAlreadyResolvedException(id);
         }
         qualityCase.resolve(request.rootCause(), request.correctiveAction(), request.resultSummary());
-        // UPDATE를 Qdrant 호출 전에 실행해 DB 오류가 벡터 적재 뒤에 터지지 않게 한다
-        qualityCaseRepository.flush();
-
-        try {
-            long start = System.nanoTime();
-            float[] vector = embeddingClient.embedDocument(QualityCaseDocument.toText(qualityCase));
-            long embedded = System.nanoTime();
-            qdrantClient.upsert(qualityCase.getId(), vector);
-            log.info("resolve 적재 id={}, 임베딩 {}ms, upsert {}ms", id,
-                    (embedded - start) / 1_000_000, (System.nanoTime() - embedded) / 1_000_000);
-        } catch (EmbeddingInputTooLongException e) {
-            // 다시 시도해도 같은 결과라 503으로 바꾸지 않는다 (롤백되어 OPEN 유지)
-            throw e;
-        } catch (RuntimeException e) {
-            throw new VectorIndexingException(id, e);
-        }
-        return QualityCaseResponse.from(qualityCase);
+        checkDocumentLength(qualityCase);
+        return QualityCaseResponse.from(qualityCase, indexingJobRepository.save(new IndexingJob(qualityCase)));
     }
 
-    // OPEN 사례 → 쿼리 텍스트 임베딩 → Qdrant top-k → MySQL에서 RESOLVED만 남김 (Qdrant 순서 유지)
-    // RESOLVED 필터: resolve의 upsert 뒤 커밋이 실패하면 OPEN 사례 벡터가 Qdrant에 남으므로
-    // ponytail: 임베딩 동안 DB 커넥션을 쥠 (resolve와 같음), 동시 요청 측정에서 문제가 되면 임베딩을 트랜잭션 밖으로
+    // 비동기 처리 중에 토큰 초과가 나면 해결됐는데 영영 검색되지 않으므로, 커밋 전에 동기로 거절한다 (롤백되어 변경 없음)
+    private void checkDocumentLength(QualityCase qualityCase) {
+        try {
+            embeddingClient.checkDocumentLength(QualityCaseDocument.toText(qualityCase));
+        } catch (EmbeddingInputTooLongException e) {
+            throw e;
+        } catch (RuntimeException e) {
+            throw new TokenCheckUnavailableException(qualityCase.getId(), e);
+        }
+    }
+
+    // 디버그·성능 측정용: Analysis와 별개로 검색 단계(임베딩 → Qdrant → MySQL 대조)만 확인한다
+    // OPEN 사례 → 쿼리 텍스트 임베딩 → Qdrant top-k(searchable만) → MySQL에서 RESOLVED이고 버전이 같은 것만 (Qdrant 순서 유지)
+    // 버전 대조: 처리기가 옛 버전 벡터를 남겼거나 아직 새 버전을 반영하지 못한 경우를 거른다
+    // ponytail: 임베딩 동안 DB 커넥션을 쥠, 동시 요청 측정에서 문제가 되면 임베딩을 트랜잭션 밖으로
     @Transactional(readOnly = true)
     public List<SimilarCaseResponse> findSimilar(Long id) {
         QualityCase qualityCase = getQualityCase(id);
@@ -156,7 +186,8 @@ public class QualityCaseService {
                 .filter(c -> c.getStatus() == CaseStatus.RESOLVED)
                 .collect(Collectors.toMap(QualityCase::getId, c -> c));
         return points.stream()
-                .filter(p -> resolved.containsKey(p.id()))
+                .filter(p -> resolved.containsKey(p.id())
+                        && p.payload().sourceVersion() == resolved.get(p.id()).getSourceVersion())
                 .map(p -> new SimilarCaseResponse(p.score(), QualityCaseResponse.from(resolved.get(p.id()))))
                 .toList();
     }
@@ -164,6 +195,10 @@ public class QualityCaseService {
     private QualityCase getQualityCase(Long id) {
         return qualityCaseRepository.findById(id)
                 .orElseThrow(() -> new QualityCaseNotFoundException(id));
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
     private static void validateQuantity(Integer productionQuantity, Integer defectQuantity) {

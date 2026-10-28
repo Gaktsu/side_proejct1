@@ -82,6 +82,10 @@ public class QualityCase {
     @Enumerated(EnumType.STRING)
     private CaseStatus status;
 
+    // 현재 내용의 번호. 등록 0, 해결 시 +1, RESOLVED 수정마다 +1 (Qdrant payload·indexing_job과 대조)
+    @Column(nullable = false)
+    private int sourceVersion;
+
     // 문제 발생 시각
     @Column(nullable = false)
     private LocalDateTime occurredAt;
@@ -138,6 +142,20 @@ public class QualityCase {
         this.correctiveAction = correctiveAction;
         this.resultSummary = resultSummary;
         this.status = CaseStatus.RESOLVED;
+        this.sourceVersion++;
         this.updatedAt = LocalDateTime.now();
+    }
+
+    // RESOLVED 사례 수정: 등록 정보와 원인/조치/결과를 함께 교체하고 새 버전이 된다 (직전 값은 QualityCaseRevision에)
+    public void revise(Product product, ManufacturingProcess manufacturingProcess, Equipment equipment,
+                       String lotNo, String title, String problemDescription, String defectType,
+                       Integer productionQuantity, Integer defectQuantity, LocalDateTime occurredAt,
+                       String rootCause, String correctiveAction, String resultSummary) {
+        update(product, manufacturingProcess, equipment, lotNo, title, problemDescription, defectType,
+                productionQuantity, defectQuantity, occurredAt);
+        this.rootCause = rootCause;
+        this.correctiveAction = correctiveAction;
+        this.resultSummary = resultSummary;
+        this.sourceVersion++;
     }
 }

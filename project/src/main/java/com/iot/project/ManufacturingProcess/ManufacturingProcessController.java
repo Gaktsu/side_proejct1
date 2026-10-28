@@ -30,7 +30,7 @@ public class ManufacturingProcessController {
         return manufacturingProcessService.findById(id);
     }
 
-    @PatchMapping("/{id}")
+    @PutMapping("/{id}")
     public ManufacturingProcessResponse update(@PathVariable Long id,
                                                @Valid @RequestBody ManufacturingProcessUpdateRequest request) {
         return manufacturingProcessService.update(id, request);

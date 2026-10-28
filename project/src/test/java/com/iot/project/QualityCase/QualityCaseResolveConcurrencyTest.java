@@ -17,12 +17,6 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
 // 각 요청이 실제로 커밋되어야 경쟁이 일어나므로 @Transactional을 붙이지 않고 직접 정리한다
@@ -47,7 +41,6 @@ class QualityCaseResolveConcurrencyTest {
     @BeforeEach
     void setUp() {
         caseId = ResolveTestData.insertOpenCase(jdbcTemplate);
-        when(embeddingClient.embedDocument(anyString())).thenReturn(new float[1024]);
     }
 
     @AfterEach
@@ -56,7 +49,7 @@ class QualityCaseResolveConcurrencyTest {
     }
 
     @Test
-    void 같은_사례_동시_해결시_하나만_200_나머지는_409() throws Exception {
+    void 같은_사례_동시_해결시_하나만_200_나머지는_409_job도_하나() throws Exception {
         List<Integer> statuses = ConcurrentRequests.run(10, () -> mockMvc.perform(
                         post("/api/quality-cases/{id}/resolve", caseId)
                                 .contentType(MediaType.APPLICATION_JSON)
@@ -67,6 +60,7 @@ class QualityCaseResolveConcurrencyTest {
 
         assertThat(statuses).filteredOn(s -> s == 200).hasSize(1);
         assertThat(statuses).filteredOn(s -> s == 409).hasSize(9);
-        verify(qdrantClient, times(1)).upsert(anyLong(), any());
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM indexing_job WHERE quality_case_id = ?",
+                Integer.class, caseId)).isEqualTo(1);
     }
 }

@@ -30,7 +30,7 @@ public class EquipmentController {
         return equipmentService.findById(id);
     }
 
-    @PatchMapping("/equipments/{id}")
+    @PutMapping("/equipments/{id}")
     public EquipmentResponse update(@PathVariable Long id, @Valid @RequestBody EquipmentUpdateRequest request) {
         return equipmentService.update(id, request);
     }
