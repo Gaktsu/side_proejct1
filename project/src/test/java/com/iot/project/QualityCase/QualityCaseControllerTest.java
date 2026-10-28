@@ -23,7 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasItem;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -196,8 +196,8 @@ class QualityCaseControllerTest {
                 .andExpect(status().isConflict());
     }
 
-    private ResultActions patchCase(Long id, Long equipmentId, int production, int defect) throws Exception {
-        return mockMvc.perform(patch("/api/quality-cases/{id}", id).contentType(MediaType.APPLICATION_JSON)
+    private ResultActions updateCase(Long id, Long equipmentId, int production, int defect) throws Exception {
+        return mockMvc.perform(put("/api/quality-cases/{id}", id).contentType(MediaType.APPLICATION_JSON)
                 .content("""
                         {
                           "productId": %s, "processId": %s, "equipmentId": %s,
@@ -240,7 +240,7 @@ class QualityCaseControllerTest {
         Long id = ((Number) JsonPath.read(json, "$.id")).longValue();
         String caseCode = JsonPath.read(json, "$.caseCode");
 
-        patchCase(id, null, 200, 5)
+        updateCase(id, null, 200, 5)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.caseCode").value(caseCode))
                 .andExpect(jsonPath("$.status").value("OPEN"))
@@ -252,28 +252,28 @@ class QualityCaseControllerTest {
 
     @Test
     void 없는_품질사례_수정시_404() throws Exception {
-        patchCase(Long.MAX_VALUE, equipmentId, 100, 3)
+        updateCase(Long.MAX_VALUE, equipmentId, 100, 3)
                 .andExpect(status().isNotFound());
     }
 
     @Test
     void 수정시_불량수량이_생산수량보다_크면_400() throws Exception {
         Long id = createCase();
-        patchCase(id, equipmentId, 10, 11)
+        updateCase(id, equipmentId, 10, 11)
                 .andExpect(status().isBadRequest());
     }
 
     @Test
     void 수정시_설비가_다른_공정_소속이면_400() throws Exception {
         Long id = createCase();
-        patchCase(id, otherProcessEquipmentId, 100, 3)
+        updateCase(id, otherProcessEquipmentId, 100, 3)
                 .andExpect(status().isBadRequest());
     }
 
     @Test
     void 수정시_없는_설비면_404() throws Exception {
         Long id = createCase();
-        patchCase(id, Long.MAX_VALUE, 100, 3)
+        updateCase(id, Long.MAX_VALUE, 100, 3)
                 .andExpect(status().isNotFound());
     }
 }

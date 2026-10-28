@@ -30,7 +30,7 @@ public class QualityCaseController {
         return qualityCaseService.findById(id);
     }
 
-    @PatchMapping("/{id}")
+    @PutMapping("/{id}")
     public QualityCaseResponse update(@PathVariable Long id, @Valid @RequestBody QualityCaseUpdateRequest request) {
         return qualityCaseService.update(id, request);
     }

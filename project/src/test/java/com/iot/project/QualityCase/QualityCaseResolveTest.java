@@ -31,7 +31,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -87,8 +87,8 @@ class QualityCaseResolveTest {
                 .contentType(MediaType.APPLICATION_JSON).content(body));
     }
 
-    private ResultActions patchCase(Long id, String resolutionFields) throws Exception {
-        return mockMvc.perform(patch("/api/quality-cases/{id}", id).contentType(MediaType.APPLICATION_JSON)
+    private ResultActions updateCase(Long id, String resolutionFields) throws Exception {
+        return mockMvc.perform(put("/api/quality-cases/{id}", id).contentType(MediaType.APPLICATION_JSON)
                 .content("""
                         {
                           "productId": %d, "processId": %d, "equipmentId": null,
@@ -164,7 +164,7 @@ class QualityCaseResolveTest {
     void 해결된_사례_수정시_직전값은_이력에_버전2_새_job() throws Exception {
         resolve(caseId, BODY).andExpect(status().isOk());
 
-        patchCase(caseId, """
+        updateCase(caseId, """
                 , "rootCause": "용접 와이어 불량", "correctiveAction": "와이어 교체", "resultSummary": null""")
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("RESOLVED"))
@@ -185,7 +185,7 @@ class QualityCaseResolveTest {
 
     @Test
     void OPEN_사례_수정에_원인을_보내면_400() throws Exception {
-        patchCase(caseId, """
+        updateCase(caseId, """
                 , "rootCause": "용접 전류 저하", "correctiveAction": "전류 설정 복구\"""")
                 .andExpect(status().isBadRequest());
 

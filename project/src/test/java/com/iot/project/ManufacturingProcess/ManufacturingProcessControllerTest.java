@@ -14,7 +14,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasItem;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -124,7 +124,7 @@ class ManufacturingProcessControllerTest {
     @Test
     void 공정_수정시_보낸_값으로_교체되고_코드는_유지() throws Exception {
         Long id = createProcess();
-        mockMvc.perform(patch("/api/processes/{id}", id).contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(put("/api/processes/{id}", id).contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"name": "아크 용접"}
                                 """))
@@ -136,7 +136,7 @@ class ManufacturingProcessControllerTest {
 
     @Test
     void 없는_공정_수정시_404() throws Exception {
-        mockMvc.perform(patch("/api/processes/{id}", Long.MAX_VALUE).contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(put("/api/processes/{id}", Long.MAX_VALUE).contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"name": "아크 용접"}
                                 """))

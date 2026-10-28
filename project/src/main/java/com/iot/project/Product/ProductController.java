@@ -30,7 +30,7 @@ public class ProductController {
         return productService.findById(id);
     }
 
-    @PatchMapping("/{id}")
+    @PutMapping("/{id}")
     public ProductResponse update(@PathVariable Long id, @Valid @RequestBody ProductUpdateRequest request) {
         return productService.update(id, request);
     }

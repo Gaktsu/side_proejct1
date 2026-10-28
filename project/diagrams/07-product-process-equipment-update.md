@@ -1,6 +1,6 @@
 # 수정 (Product / Process / Equipment 공통)
 
-`PATCH /api/products/{id}`, `PATCH /api/processes/{id}`, `PATCH /api/equipments/{id}`
+`PUT /api/products/{id}`, `PUT /api/processes/{id}`, `PUT /api/equipments/{id}`
 
 ```mermaid
 flowchart TD

@@ -16,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -154,7 +154,7 @@ class EquipmentControllerTest {
     @Test
     void 설비_수정시_보낸_값으로_교체되고_코드와_공정은_유지() throws Exception {
         Long id = createEquipment();
-        mockMvc.perform(patch("/api/equipments/{id}", id).contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(put("/api/equipments/{id}", id).contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"name": "용접기 1호 (교체)", "description": "2026-10 교체"}
                                 """))
@@ -167,7 +167,7 @@ class EquipmentControllerTest {
 
     @Test
     void 없는_설비_수정시_404() throws Exception {
-        mockMvc.perform(patch("/api/equipments/{id}", Long.MAX_VALUE).contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(put("/api/equipments/{id}", Long.MAX_VALUE).contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"name": "용접기 1호"}
                                 """))
