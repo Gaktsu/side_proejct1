@@ -1,4 +1,4 @@
-# QualityCase 해결 확정 (resolve + Qdrant 적재)
+# QualityCase 해결 확정 (resolve + 인덱싱 job 기록)
 
 `POST /api/quality-cases/{id}/resolve`
 
@@ -7,24 +7,24 @@ flowchart TD
     A([해결 요청]) --> B{id의 품질사례가<br/>DB에 있음?<br/>행 잠금 SELECT ... FOR UPDATE}
     B -- 아니오 --> R404[/404 Not Found<br/>사례 없음, 변경 없음/]
     B -- 예 --> C{상태가 RESOLVED임?<br/>동시 요청은 앞 요청 커밋 후 읽음}
-    C -- 예 --> R409[/409 Conflict<br/>이미 해결됨, 변경·적재 없음/]
-    C -- 아니오 --> D[원인·조치·결과 저장<br/>status = RESOLVED, updatedAt 갱신<br/>UPDATE 즉시 실행 flush]
-    D --> T{문서 텍스트가<br/>1024토큰을 넘음?}
-    T -- 예 --> R400[/400 Bad Request<br/>토큰 초과, 롤백되어 OPEN 유지, 벡터 없음/]
-    T -- 아니오 --> E{문서 텍스트 임베딩 +<br/>Qdrant upsert 성공?}
-    E -- 아니오 --> R503[/503 Service Unavailable<br/>롤백되어 OPEN 유지, 벡터 없음/]
-    E -- 예 --> F{MySQL 커밋 성공?}
-    F -- 예 --> R200[/200 OK<br/>RESOLVED 저장, Qdrant에 벡터 적재/]
-    F -- 아니오 --> R500[/500<br/>MySQL은 롤백되어 OPEN<br/>Qdrant에는 벡터가 남음/]
+    C -- 예 --> R409[/409 Conflict<br/>이미 해결됨, 변경 없음/]
+    C -- 아니오 --> D[원인·조치·결과 저장<br/>status = RESOLVED, sourceVersion +1]
+    D --> T{토크나이저를<br/>불러올 수 있음?}
+    T -- 아니오 --> R503[/503 Service Unavailable<br/>토큰 검사 불가, 롤백되어 OPEN 유지/]
+    T -- 예 --> T2{문서 텍스트가<br/>1024토큰을 넘음?}
+    T2 -- 예 --> R400[/400 Bad Request<br/>토큰 초과, 롤백되어 OPEN 유지/]
+    T2 -- 아니오 --> E[indexing_job INSERT<br/>embedding PENDING / qdrant WAITING]
+    E --> R200[/200 OK<br/>RESOLVED + job 커밋, 검색 반영 대기/]
+    R200 -.- N[임베딩·Qdrant 적재는 커밋 뒤<br/>인덱싱 처리기가 따로 실행<br/>13-indexing-worker.md]
 
     classDef ok fill:#d4edda,stroke:#28a745,color:#155724
     classDef fail fill:#f8d7da,stroke:#dc3545,color:#000000
-    classDef bug fill:#fff3cd,stroke:#ffc107,color:#856404
+    classDef note fill:#eeeeee,stroke:#999999,color:#333333
     class R200 ok
-    class R404,R409,R400,R503 fail
-    class R500 bug
+    class R404,R409,R503,R400 fail
+    class N note
 ```
 
-- 노란 칸: upsert 뒤 커밋이 실패하는 경우(MySQL 연결 끊김, 앱 종료 등)는 코드에서 되돌릴 수 없다. Qdrant에 남은 벡터는 유사 사례 검색 API에서 MySQL `RESOLVED` 필터로 거르고, 담당자가 다시 resolve하면 같은 Point ID에 덮어써진다.
-- 임베딩은 트랜잭션 안에서 실행되므로 그동안 DB 커넥션과 행 잠금을 쥔다. 같은 사례의 다음 요청이 `innodb_lock_wait_timeout`(기본 50초)보다 오래 기다리면 잠금 대기 실패로 500이 날 수 있다 (첫 호출 모델 로딩이 약 7초라 현재는 해당 없음).
-- 토큰 초과는 다시 시도해도 같은 결과라 503이 아니라 400으로 응답한다. 토큰 수는 모델 추론 전에 토크나이저로 세므로 추론 비용은 들지 않는다 (첫 호출이면 모델 로딩은 일어난다).
+- 사례 변경과 job 기록이 한 트랜잭션이라 둘 다 커밋되거나 둘 다 롤백된다. 응답 `embeddingStatus=PENDING`, `qdrantStatus=WAITING`.
+- 토큰 수만 동기로 센다(토크나이저만, 모델 추론 없음). 비동기로 미루면 해결됐는데 영영 검색되지 않는 사례가 생기기 때문.
+- 첫 호출은 토크나이저 네이티브 라이브러리 로딩으로 약 5초 걸린다 (2026-10-27 측정, 이후 약 0.1초).

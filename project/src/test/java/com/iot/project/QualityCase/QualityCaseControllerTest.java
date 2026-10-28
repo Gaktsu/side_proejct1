@@ -257,17 +257,6 @@ class QualityCaseControllerTest {
     }
 
     @Test
-    void RESOLVED_품질사례_수정시_409() throws Exception {
-        Long id = createCase();
-        jdbcTemplate.update("UPDATE quality_case SET status = 'RESOLVED' WHERE id = ?", id);
-        entityManager.clear();
-
-        patchCase(id, equipmentId, 100, 3)
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.detail").value("해결 완료(RESOLVED)된 품질사례는 수정할 수 없습니다. id=" + id));
-    }
-
-    @Test
     void 수정시_불량수량이_생산수량보다_크면_400() throws Exception {
         Long id = createCase();
         patchCase(id, equipmentId, 10, 11)

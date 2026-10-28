@@ -4,13 +4,13 @@ import java.util.StringJoiner;
 
 // 임베딩할 텍스트를 만든다 (벤치마크·scripts/export_pixie_onnx.py와 같은 형식)
 // 문서(toText) 필드 구성을 바꾸면 Qdrant의 기존 벡터를 모두 다시 적재해야 한다
-final class QualityCaseDocument {
+public final class QualityCaseDocument {
 
     private QualityCaseDocument() {
     }
 
     // RESOLVED 사례 → Qdrant에 적재할 문서 텍스트
-    static String toText(QualityCase qualityCase) {
+    public static String toText(QualityCase qualityCase) {
         return toQueryText(qualityCase)
                 + "\n확정 원인: " + qualityCase.getRootCause()
                 + "\n조치: " + qualityCase.getCorrectiveAction();

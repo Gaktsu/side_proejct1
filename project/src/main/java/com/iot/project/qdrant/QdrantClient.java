@@ -13,6 +13,9 @@ public class QdrantClient {
 
     static final int VECTOR_SIZE = 1024;
     static final String DISTANCE = "Cosine";
+    // payload가 없는 옛 포인트(LLD 1 이전 적재분)도 이 조건에 걸려 검색에서 빠진다
+    private static final Map<String, Object> SEARCHABLE_ONLY =
+            Map.of("must", List.of(Map.of("key", "searchable", "match", Map.of("value", true))));
 
     private final RestClient restClient;
     private final String collection;
@@ -61,12 +64,12 @@ public class QdrantClient {
         }
     }
 
-    // 같은 id가 있으면 덮어쓴다. wait=true: 반영이 끝난 뒤 응답 → 직후 검색에 바로 보임
-    public void upsert(long id, float[] vector) {
+    // 같은 id가 있으면 덮어쓴다(payload 포함). wait=true: 반영이 끝난 뒤 응답 → 직후 검색에 바로 보임
+    public void upsert(long id, float[] vector, int sourceVersion) {
         ensureReady();
         restClient.put()
                 .uri("/collections/{name}/points?wait=true", collection)
-                .body(Map.of("points", List.of(new Point(id, vector))))
+                .body(Map.of("points", List.of(new Point(id, vector, new PointPayload(sourceVersion, true)))))
                 .retrieve()
                 .toBodilessEntity();
     }
@@ -75,7 +78,7 @@ public class QdrantClient {
         ensureReady();
         return restClient.post()
                 .uri("/collections/{name}/points/query", collection)
-                .body(Map.of("query", vector, "limit", limit))
+                .body(Map.of("query", vector, "limit", limit, "filter", SEARCHABLE_ONLY, "with_payload", true))
                 .retrieve()
                 .body(QueryResponse.class)
                 .result().points();
@@ -92,7 +95,7 @@ public class QdrantClient {
 
     // Qdrant 요청/응답 JSON 중 사용하는 필드만 매핑
     private record VectorParams(int size, String distance) {}
-    private record Point(long id, float[] vector) {}
+    private record Point(long id, float[] vector, PointPayload payload) {}
 
     private record ExistsResponse(Exists result) {}
     private record Exists(boolean exists) {}

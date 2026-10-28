@@ -80,7 +80,7 @@ class QdrantClientTest {
 
     @Test
     void 컬렉션_이미_있으면_데이터_유지() {
-        qdrantClient.upsert(1L, vector(0));
+        qdrantClient.upsert(1L, vector(0), 1);
 
         qdrantClient.ensureCollection();
 
@@ -93,7 +93,7 @@ class QdrantClientTest {
         // 공유 빈은 이전 테스트에서 이미 확인됨(collectionReady=true) → 새 인스턴스로 첫 사용 상황을 만든다
         QdrantClient fresh = new QdrantClient(qdrantUrl, COLLECTION);
 
-        fresh.upsert(1L, vector(0));
+        fresh.upsert(1L, vector(0), 1);
 
         assertThat(pointCount()).isEqualTo(1);
     }
@@ -111,19 +111,33 @@ class QdrantClientTest {
 
     @Test
     void 같은_벡터로_검색하면_1위_점수_1() {
-        qdrantClient.upsert(1L, vector(0));
-        qdrantClient.upsert(2L, vector(1));
+        qdrantClient.upsert(1L, vector(0), 1);
+        qdrantClient.upsert(2L, vector(1), 1);
 
         List<ScoredPoint> result = qdrantClient.search(vector(0), 5);
 
         assertThat(result.getFirst().id()).isEqualTo(1L);
         assertThat(result.getFirst().score()).isCloseTo(1.0, within(1e-6));
+        assertThat(result.getFirst().payload()).isEqualTo(new PointPayload(1, true));
+    }
+
+    @Test
+    void payload_없는_옛_포인트는_검색에서_빠짐() {
+        qdrantClient.upsert(1L, vector(0), 1);
+        // LLD 1 이전 방식(벡터만) 적재
+        raw.put().uri("/collections/{name}/points?wait=true", COLLECTION)
+                .body(Map.of("points", List.of(Map.of("id", 2L, "vector", vector(0)))))
+                .retrieve().toBodilessEntity();
+
+        assertThat(qdrantClient.search(vector(0), 5))
+                .extracting(ScoredPoint::id)
+                .containsExactly(1L);
     }
 
     @Test
     void 같은_id로_upsert하면_덮어씀() {
-        qdrantClient.upsert(1L, vector(0));
-        qdrantClient.upsert(1L, vector(1));
+        qdrantClient.upsert(1L, vector(0), 1);
+        qdrantClient.upsert(1L, vector(1), 1);
 
         assertThat(pointCount()).isEqualTo(1);
         assertThat(qdrantClient.search(vector(1), 1).getFirst().score()).isCloseTo(1.0, within(1e-6));
@@ -131,8 +145,8 @@ class QdrantClientTest {
 
     @Test
     void 삭제하면_검색결과에_없음() {
-        qdrantClient.upsert(1L, vector(0));
-        qdrantClient.upsert(2L, vector(1));
+        qdrantClient.upsert(1L, vector(0), 1);
+        qdrantClient.upsert(2L, vector(1), 1);
 
         qdrantClient.delete(1L);
 
@@ -143,9 +157,9 @@ class QdrantClientTest {
 
     @Test
     void limit만큼만_반환() {
-        qdrantClient.upsert(1L, vector(0));
-        qdrantClient.upsert(2L, vector(1));
-        qdrantClient.upsert(3L, vector(2));
+        qdrantClient.upsert(1L, vector(0), 1);
+        qdrantClient.upsert(2L, vector(1), 1);
+        qdrantClient.upsert(3L, vector(2), 1);
 
         assertThat(qdrantClient.search(vector(0), 2)).hasSize(2);
     }

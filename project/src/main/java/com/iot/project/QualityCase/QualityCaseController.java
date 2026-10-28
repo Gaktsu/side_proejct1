@@ -40,6 +40,13 @@ public class QualityCaseController {
         return qualityCaseService.resolve(id, request);
     }
 
+    // 이전 버전(RESOLVED 수정 직전 값) 목록. 조회만, 검색 대상 아님
+    @GetMapping("/{id}/revisions")
+    public List<QualityCaseRevisionResponse> findRevisions(@PathVariable Long id) {
+        return qualityCaseService.findRevisions(id);
+    }
+
+    // 디버그·성능 측정용 (분석 흐름은 Analysis API)
     @GetMapping("/{id}/similar-cases")
     public List<SimilarCaseResponse> findSimilar(@PathVariable Long id) {
         return qualityCaseService.findSimilar(id);

@@ -37,3 +37,22 @@ flowchart TD
     class R404 fail
     class N note
 ```
+
+## 품질사례 이력 조회
+
+`GET /api/quality-cases/{id}/revisions`
+
+```mermaid
+flowchart TD
+    A([이력 조회 요청]) --> B{id의 품질사례가<br/>DB에 있음?}
+    B -- 아니오 --> R404[/404 Not Found/]
+    B -- 예 --> R200[/200 OK<br/>RESOLVED 수정 직전 값들, 버전 내림차순<br/>없으면 빈 배열/]
+
+    classDef ok fill:#d4edda,stroke:#28a745,color:#155724
+    classDef fail fill:#f8d7da,stroke:#dc3545,color:#000000
+    class R200 ok
+    class R404 fail
+```
+
+- 품질사례 단건·목록 응답에는 현재 버전의 `embeddingStatus`/`qdrantStatus`가 함께 온다 (job 없으면 null). 현재 버전 job은 사례당 최대 1개라 left join 한 번으로 조회한다.
+

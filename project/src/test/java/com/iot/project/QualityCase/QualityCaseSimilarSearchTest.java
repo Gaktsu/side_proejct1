@@ -8,6 +8,7 @@ import com.iot.project.Product.Product;
 import com.iot.project.Product.ProductRepository;
 import com.iot.project.embedding.EmbeddingClient;
 import com.iot.project.embedding.EmbeddingInputTooLongException;
+import com.iot.project.qdrant.PointPayload;
 import com.iot.project.qdrant.QdrantClient;
 import com.iot.project.qdrant.ScoredPoint;
 import org.junit.jupiter.api.BeforeEach;
@@ -86,6 +87,11 @@ class QualityCaseSimilarSearchTest {
         return qualityCaseRepository.save(qualityCase).getId();
     }
 
+    // 적재 당시 버전 1 (resolve 한 번)
+    private static ScoredPoint point(long id, double score) {
+        return new ScoredPoint(id, score, new PointPayload(1, true));
+    }
+
     private ResultActions search(Long id) throws Exception {
         return mockMvc.perform(get("/api/quality-cases/{id}/similar-cases", id));
     }
@@ -96,7 +102,7 @@ class QualityCaseSimilarSearchTest {
         Long second = saveCase("TEST-QC-R2", true);
         // MySQL 조회 결과는 id 순이므로, id가 큰 사례를 1등으로 줘서 Qdrant 순서로 다시 정렬하는지 본다
         when(qdrantClient.search(any(), anyInt()))
-                .thenReturn(List.of(new ScoredPoint(second, 0.91), new ScoredPoint(first, 0.85)));
+                .thenReturn(List.of(point(second, 0.91), point(first, 0.85)));
 
         search(openId)
                 .andExpect(status().isOk())
@@ -122,13 +128,27 @@ class QualityCaseSimilarSearchTest {
         Long otherOpen = saveCase("TEST-QC-O2", false);
         // resolve 커밋 실패로 남은 벡터: 다른 OPEN 사례, 검색한 사례 자신, MySQL에 없는 id
         when(qdrantClient.search(any(), anyInt())).thenReturn(List.of(
-                new ScoredPoint(otherOpen, 0.95), new ScoredPoint(openId, 0.93),
-                new ScoredPoint(999999999L, 0.90), new ScoredPoint(resolved, 0.80)));
+                point(otherOpen, 0.95), point(openId, 0.93),
+                point(999999999L, 0.90), point(resolved, 0.80)));
 
         search(openId)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(1)))
                 .andExpect(jsonPath("$[0].qualityCase.id").value(resolved));
+    }
+
+    @Test
+    void 벡터_버전이_사례_버전과_다르면_응답에서_뺀다() throws Exception {
+        Long current = saveCase("TEST-QC-R1", true);
+        Long stale = saveCase("TEST-QC-R2", true);
+        // 수정 뒤 아직 새 버전을 반영하지 못한 벡터 (사례는 버전 1, 벡터는 버전 0)
+        when(qdrantClient.search(any(), anyInt())).thenReturn(List.of(
+                new ScoredPoint(stale, 0.95, new PointPayload(0, true)), point(current, 0.80)));
+
+        search(openId)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].qualityCase.id").value(current));
     }
 
     @Test
