@@ -100,6 +100,22 @@ class IndexingWorkerTest {
     }
 
     @Test
+    void 임베딩_도중에_사례가_수정되면_upsert_안하고_Qdrant는_SUPERSEDED() {
+        Long caseId = ResolveTestData.insertResolvedCase(jdbcTemplate, 1);
+        Long jobId = ResolveTestData.insertJob(jdbcTemplate, caseId, 1, "PENDING", "WAITING");
+        // 임베딩하는 사이에 다른 요청의 수정이 커밋된 상황 (source_version 1 → 2)
+        when(embeddingClient.embedDocument(anyString())).thenAnswer(invocation -> {
+            jdbcTemplate.update("UPDATE quality_case SET source_version = 2 WHERE id = ?", caseId);
+            return vector;
+        });
+
+        worker.pollOnce();
+
+        assertThat(job(jobId)).containsEntry("embedding_status", "COMPLETED").containsEntry("qdrant_status", "SUPERSEDED");
+        verify(qdrantClient, never()).upsert(anyLong(), any(), anyInt());
+    }
+
+    @Test
     void 기동시_처리중이던_단계는_PENDING으로_되돌린다() {
         Long caseId = ResolveTestData.insertResolvedCase(jdbcTemplate, 1);
         Long jobId = ResolveTestData.insertJob(jdbcTemplate, caseId, 1, "PROCESSING", "WAITING");
