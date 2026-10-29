@@ -152,6 +152,27 @@ class QualityCaseSimilarSearchTest {
     }
 
     @Test
+    void 삭제된_사례는_searchable_반영_전이어도_응답에서_뺀다() throws Exception {
+        Long alive = saveCase("TEST-QC-R1", true);
+        Long deleted = saveCase("TEST-QC-R2", true);
+        qualityCaseRepository.findById(deleted).orElseThrow().delete();
+        // Qdrant에는 아직 searchable=true로 남아 있는 상황
+        when(qdrantClient.search(any(), anyInt())).thenReturn(List.of(point(deleted, 0.95), point(alive, 0.80)));
+
+        search(openId)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].qualityCase.id").value(alive));
+    }
+
+    @Test
+    void 삭제된_사례로_검색하면_404() throws Exception {
+        qualityCaseRepository.findById(openId).orElseThrow().delete();
+
+        search(openId).andExpect(status().isNotFound());
+    }
+
+    @Test
     void Qdrant가_비어_있으면_빈_목록_200() throws Exception {
         when(qdrantClient.search(any(), anyInt())).thenReturn(List.of());
 

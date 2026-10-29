@@ -42,6 +42,12 @@ class QdrantClientTest {
     }
 
     // index 위치만 1인 1024차원 벡터. 서로 다른 index끼리는 코사인 유사도 0
+    // upsert는 항상 searchable=false라 검색 테스트는 노출까지 해 둔다
+    private void index(long id, float[] vector) {
+        qdrantClient.upsert(id, vector, 1);
+        qdrantClient.setSearchable(id, true, 1);
+    }
+
     private static float[] vector(int index) {
         float[] v = new float[QdrantClient.VECTOR_SIZE];
         v[index] = 1f;
@@ -111,8 +117,8 @@ class QdrantClientTest {
 
     @Test
     void 같은_벡터로_검색하면_1위_점수_1() {
-        qdrantClient.upsert(1L, vector(0), 1);
-        qdrantClient.upsert(2L, vector(1), 1);
+        index(1L, vector(0));
+        index(2L, vector(1));
 
         List<ScoredPoint> result = qdrantClient.search(vector(0), 5);
 
@@ -123,7 +129,7 @@ class QdrantClientTest {
 
     @Test
     void payload_없는_옛_포인트는_검색에서_빠짐() {
-        qdrantClient.upsert(1L, vector(0), 1);
+        index(1L, vector(0));
         // LLD 1 이전 방식(벡터만) 적재
         raw.put().uri("/collections/{name}/points?wait=true", COLLECTION)
                 .body(Map.of("points", List.of(Map.of("id", 2L, "vector", vector(0)))))
@@ -136,8 +142,8 @@ class QdrantClientTest {
 
     @Test
     void 같은_id로_upsert하면_덮어씀() {
-        qdrantClient.upsert(1L, vector(0), 1);
-        qdrantClient.upsert(1L, vector(1), 1);
+        index(1L, vector(0));
+        index(1L, vector(1));
 
         assertThat(pointCount()).isEqualTo(1);
         assertThat(qdrantClient.search(vector(1), 1).getFirst().score()).isCloseTo(1.0, within(1e-6));
@@ -145,8 +151,8 @@ class QdrantClientTest {
 
     @Test
     void 삭제하면_검색결과에_없음() {
-        qdrantClient.upsert(1L, vector(0), 1);
-        qdrantClient.upsert(2L, vector(1), 1);
+        index(1L, vector(0));
+        index(2L, vector(1));
 
         qdrantClient.delete(1L);
 
@@ -157,10 +163,43 @@ class QdrantClientTest {
 
     @Test
     void limit만큼만_반환() {
-        qdrantClient.upsert(1L, vector(0), 1);
-        qdrantClient.upsert(2L, vector(1), 1);
-        qdrantClient.upsert(3L, vector(2), 1);
+        index(1L, vector(0));
+        index(2L, vector(1));
+        index(3L, vector(2));
 
         assertThat(qdrantClient.search(vector(0), 2)).hasSize(2);
+    }
+
+    @Test
+    void upsert만_하면_searchable_false라_검색에_안_나옴() {
+        qdrantClient.upsert(1L, vector(0), 1);
+
+        assertThat(qdrantClient.search(vector(0), 5)).isEmpty();
+    }
+
+    @Test
+    void 포인트_버전이_다르면_true로_바뀌지_않음() {
+        qdrantClient.upsert(1L, vector(0), 1);
+
+        qdrantClient.setSearchable(1L, true, 2);
+
+        assertThat(qdrantClient.search(vector(0), 5)).isEmpty();
+    }
+
+    @Test
+    void searchable_false로_바꾸면_검색에서_빠짐() {
+        index(1L, vector(0));
+
+        qdrantClient.setSearchable(1L, false, 1);
+
+        assertThat(qdrantClient.search(vector(0), 5)).isEmpty();
+    }
+
+    @Test
+    void 없는_포인트의_searchable_변경은_오류_없이_무시() {
+        qdrantClient.setSearchable(99L, false, 1);
+        qdrantClient.setSearchable(99L, true, 1);
+
+        assertThat(pointCount()).isZero();
     }
 }

@@ -4,7 +4,7 @@
 
 ```mermaid
 flowchart TD
-    A([해결 요청]) --> B{id의 품질사례가<br/>DB에 있음?<br/>행 잠금 SELECT ... FOR UPDATE}
+    A([해결 요청]) --> B{id의 품질사례가<br/>DB에 있고 삭제 안 됨?<br/>행 잠금 SELECT ... FOR UPDATE}
     B -- 아니오 --> R404[/404 Not Found<br/>사례 없음, 변경 없음/]
     B -- 예 --> C{상태가 RESOLVED임?<br/>동시 요청은 앞 요청 커밋 후 읽음}
     C -- 예 --> R409[/409 Conflict<br/>이미 해결됨, 변경 없음/]

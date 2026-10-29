@@ -43,6 +43,7 @@ public final class ResolveTestData {
 
     // 자식 테이블부터 지운다
     public static void deleteAll(JdbcTemplate jdbc) {
+        jdbc.update("DELETE v FROM search_visibility_job v JOIN quality_case q ON v.quality_case_id = q.id WHERE q.case_code LIKE 'TEST-%'");
         jdbc.update("DELETE j FROM indexing_job j JOIN quality_case q ON j.quality_case_id = q.id WHERE q.case_code LIKE 'TEST-%'");
         jdbc.update("DELETE r FROM quality_case_revision r JOIN quality_case q ON r.quality_case_id = q.id WHERE q.case_code LIKE 'TEST-%'");
         jdbc.update("DELETE FROM quality_case WHERE case_code LIKE 'TEST-%'");
