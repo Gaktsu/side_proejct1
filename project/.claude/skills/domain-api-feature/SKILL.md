@@ -1,6 +1,6 @@
 ---
 name: domain-api-feature
-description: 이 프로젝트(품질사례 지식화 시스템, Spring Boot + MySQL)에서 도메인별 REST API 기능(등록/조회/수정/삭제/resolve 등)을 구현하고, 실제 MySQL로 JUnit 테스트를 돌린 뒤, 비즈니스 로직 분기를 Mermaid 순서도로 diagrams/ 에 저장하는 작업 흐름. 사용자가 "QualityCase API 만들어줘", "InspectionResult 등록/삭제 추가", "Controller/Service/DTO/Exception 만들어", "API 만들고 순서도로 그려줘", "로직 시각화", "mermaid flowchart" 등을 말하면 반드시 이 스킬을 사용한다. 기능 구현만 또는 순서도만 요청해도 해당 단계를 이 스킬 규칙대로 수행한다.
+description: 이 프로젝트(품질사례 지식화 시스템, Spring Boot + MySQL)에서 도메인별 REST API 기능(등록/조회/수정/삭제/resolve 등)을 구현하고, 실제 MySQL로 JUnit 테스트를 돌린 뒤, 비즈니스 로직 분기를 Mermaid 순서도로 verification/diagrams/ 에 저장하는 작업 흐름. 사용자가 "QualityCase API 만들어줘", "InspectionResult 등록/삭제 추가", "Controller/Service/DTO/Exception 만들어", "API 만들고 순서도로 그려줘", "로직 시각화", "mermaid flowchart" 등을 말하면 반드시 이 스킬을 사용한다. 기능 구현만 또는 순서도만 요청해도 해당 단계를 이 스킬 규칙대로 수행한다.
 ---
 
 # 도메인 API 기능 구현 + Mermaid 순서도
@@ -9,6 +9,7 @@ description: 이 프로젝트(품질사례 지식화 시스템, Spring Boot + My
 
 ## 0. 범위 확인
 
+- 구현 전에 requirements-before-implement 스킬로 `verification/requirements/<주제>.md`를 쓰고 사용자 확인을 받는다. 이미 있으면 그 파일이 이번 범위다.
 - `CLAUDE.md`와 기획서(경로는 CLAUDE.md에 있음)에서 해당 도메인의 API 경로, 도메인 규칙을 확인한다.
 - **요청된 동작만** 만든다. "생성, 제거만"이라고 하면 조회/수정은 만들지 않는다. 사용자가 단계적으로 쌓아 가는 프로젝트라 앞질러 만들면 리뷰 부담만 늘어난다.
 - 경로가 기획서에 없거나 해석이 갈리면(예: 하위 리소스 생성 경로) 기획서의 기존 경로와 일관되게 고르고, 고른 이유를 작업 시작 전에 한 줄로 알린다.
@@ -79,7 +80,7 @@ UNIQUE 컬럼이 있는 등록 API는 같은 코드로 동시에 요청했을 �
 
 ## 4. Mermaid 순서도
 
-구현한 로직을 사용자가 한눈에 검증할 수 있게 `diagrams/`(프로젝트 루트)에 저장한다. 사용자가 원하는 것은 **조건문 기준 분기와 그 결과**다.
+구현한 로직을 사용자가 한눈에 검증할 수 있게 `verification/diagrams/`(프로젝트 루트의 검증 보조 폴더, 요구사항 파일은 옆의 `verification/requirements/`)에 저장한다. 사용자가 원하는 것은 **조건문 기준 분기와 그 결과**다.
 
 - 시퀀스 다이어그램이 아니라 **`flowchart TD`**.
 - **비즈니스 로직만** 그린다. `@Valid` 입력값 검증(400) 분기는 넣지 않는다 — 사용자가 명시적으로 빼 달라고 했다. 분기 기준은 세 가지:
