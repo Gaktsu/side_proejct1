@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -64,12 +65,28 @@ public class QdrantClient {
         }
     }
 
-    // 같은 id가 있으면 덮어쓴다(payload 포함). wait=true: 반영이 끝난 뒤 응답 → 직후 검색에 바로 보임
+    // 같은 id가 있으면 덮어쓴다(payload 포함). 항상 searchable=false로 넣고, 검색 노출은 setSearchable만 바꾼다
+    // (searchable을 쓰는 곳을 SearchVisibilityWorker 하나로 모아 스레드 간 덮어쓰기 경합을 없앤다)
     public void upsert(long id, float[] vector, int sourceVersion) {
         ensureReady();
         restClient.put()
                 .uri("/collections/{name}/points?wait=true", collection)
-                .body(Map.of("points", List.of(new Point(id, vector, new PointPayload(sourceVersion, true)))))
+                .body(Map.of("points", List.of(new Point(id, vector, new PointPayload(sourceVersion, false)))))
+                .retrieve()
+                .toBodilessEntity();
+    }
+
+    // id로 고르는 대신 필터로 골라, 포인트가 없거나 버전이 다르면 오류 없이 0건 갱신으로 끝난다
+    // true는 포인트의 sourceVersion이 requiredVersion과 같을 때만 (옛 벡터를 다시 검색에 쓰지 않음)
+    public void setSearchable(long id, boolean searchable, int requiredVersion) {
+        ensureReady();
+        List<Map<String, Object>> must = new ArrayList<>(List.of(Map.of("has_id", List.of(id))));
+        if (searchable) {
+            must.add(Map.of("key", "sourceVersion", "match", Map.of("value", requiredVersion)));
+        }
+        restClient.post()
+                .uri("/collections/{name}/points/payload?wait=true", collection)
+                .body(Map.of("payload", Map.of("searchable", searchable), "filter", Map.of("must", must)))
                 .retrieve()
                 .toBodilessEntity();
     }

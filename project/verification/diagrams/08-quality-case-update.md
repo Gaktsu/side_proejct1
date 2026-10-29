@@ -4,7 +4,7 @@
 
 ```mermaid
 flowchart TD
-    A([수정 요청]) --> A1{id의 품질사례가 DB에 있음?<br/>행 잠금 SELECT ... FOR UPDATE}
+    A([수정 요청]) --> A1{id의 품질사례가 DB에 있고 삭제 안 됨?<br/>행 잠금 SELECT ... FOR UPDATE}
     A1 -- 아니오 --> R404C[/404 Not Found<br/>사례 없음, 변경 없음/]
     A1 -- 예 --> B{불량 수량이<br/>생산 수량보다 큼?}
     B -- 예 --> R400Q[/400 Bad Request<br/>수량 모순, 변경 없음/]

@@ -40,6 +40,18 @@ public class QualityCaseController {
         return qualityCaseService.resolve(id, request);
     }
 
+    // 해결 취소 (RESOLVED → OPEN)
+    @PostMapping("/{id}/reopen")
+    public QualityCaseResponse reopen(@PathVariable Long id) {
+        return qualityCaseService.reopen(id);
+    }
+
+    // 논리 삭제된 사례 복구 (삭제 전 상태 유지)
+    @PostMapping("/{id}/restore")
+    public QualityCaseResponse restore(@PathVariable Long id) {
+        return qualityCaseService.restore(id);
+    }
+
     // 이전 버전(RESOLVED 수정 직전 값) 목록. 조회만, 검색 대상 아님
     @GetMapping("/{id}/revisions")
     public List<QualityCaseRevisionResponse> findRevisions(@PathVariable Long id) {
@@ -52,6 +64,7 @@ public class QualityCaseController {
         return qualityCaseService.findSimilar(id);
     }
 
+    // 논리 삭제 (행은 남고 restore 외 API에서 404)
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable Long id) {

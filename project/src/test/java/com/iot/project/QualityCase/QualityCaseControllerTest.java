@@ -146,12 +146,64 @@ class QualityCaseControllerTest {
                         + otherProcessEquipmentId + ", processId=" + processId));
     }
 
+    // resolve API는 임베딩 토큰 검사가 필요하므로 DB에서 직접 RESOLVED(버전 1)로 만든다
+    private Long createResolvedCase() throws Exception {
+        Long id = createCase();
+        jdbcTemplate.update("""
+                UPDATE quality_case SET status = 'RESOLVED', root_cause = '용접 전류 저하',
+                    corrective_action = '전류 설정 복구', result_summary = '재발 없음', source_version = 1
+                WHERE id = ?""", id);
+        // 실제 요청처럼 별도 영속성 컨텍스트에서 조회하도록 비움
+        entityManager.clear();
+        return id;
+    }
+
+    // 테스트 트랜잭션 안의 변경을 DB에 내보내고(JdbcTemplate 조회용) 다음 요청이 새로 읽게 한다
+    private void flushAndClear() {
+        entityManager.flush();
+        entityManager.clear();
+    }
+
+    private int visibilityJobCount(Long id) {
+        return jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM search_visibility_job WHERE quality_case_id = ? AND status = 'PENDING'", Integer.class, id);
+    }
+
     @Test
-    void 품질사례_삭제() throws Exception {
+    void 품질사례_삭제시_행은_남고_deleted_at과_노출job_기록() throws Exception {
         Long id = createCase();
         mockMvc.perform(delete("/api/quality-cases/{id}", id))
                 .andExpect(status().isNoContent());
-        assertThat(qualityCaseRepository.existsById(id)).isFalse();
+        flushAndClear();
+
+        assertThat(jdbcTemplate.queryForObject("SELECT deleted_at IS NOT NULL FROM quality_case WHERE id = ?", Boolean.class, id)).isTrue();
+        assertThat(visibilityJobCount(id)).isEqualTo(1);
+        mockMvc.perform(get("/api/quality-cases/{id}", id)).andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/quality-cases")).andExpect(jsonPath("$[?(@.id == %d)]".formatted(id)).isEmpty());
+    }
+
+    @Test
+    void RESOLVED_품질사례도_삭제되고_상태와_버전은_유지() throws Exception {
+        Long id = createResolvedCase();
+        mockMvc.perform(delete("/api/quality-cases/{id}", id))
+                .andExpect(status().isNoContent());
+        flushAndClear();
+
+        assertThat(jdbcTemplate.queryForMap("SELECT status, source_version FROM quality_case WHERE id = ?", id))
+                .containsEntry("status", "RESOLVED").containsEntry("source_version", 1);
+    }
+
+    @Test
+    void 검사결과가_있어도_논리_삭제는_204() throws Exception {
+        Long id = createCase();
+        jdbcTemplate.update("""
+                INSERT INTO inspection_result (quality_case_id, inspection_item, text_value, result_status, created_at)
+                VALUES (?, '표면 상태', '균열', 'FAIL', NOW())
+                """, id);
+        entityManager.clear();
+
+        mockMvc.perform(delete("/api/quality-cases/{id}", id))
+                .andExpect(status().isNoContent());
     }
 
     @Test
@@ -161,30 +213,84 @@ class QualityCaseControllerTest {
     }
 
     @Test
-    void RESOLVED_품질사례_삭제시_409() throws Exception {
-        Long id = createCase();
-        // resolve API가 아직 없으므로 DB에서 직접 상태를 바꾼다
-        jdbcTemplate.update("UPDATE quality_case SET status = 'RESOLVED' WHERE id = ?", id);
-        // 실제 요청처럼 별도 영속성 컨텍스트에서 조회하도록 비움
-        entityManager.clear();
+    void 삭제된_사례는_다시_삭제_수정_해결_취소_이력_모두_404() throws Exception {
+        Long id = createResolvedCase();
+        mockMvc.perform(delete("/api/quality-cases/{id}", id));
+        flushAndClear();
 
-        mockMvc.perform(delete("/api/quality-cases/{id}", id))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.detail").value("해결 완료(RESOLVED)된 품질사례는 삭제할 수 없습니다. id=" + id));
-        assertThat(qualityCaseRepository.existsById(id)).isTrue();
+        mockMvc.perform(delete("/api/quality-cases/{id}", id)).andExpect(status().isNotFound());
+        updateCase(id, equipmentId, 100, 3).andExpect(status().isNotFound());
+        mockMvc.perform(post("/api/quality-cases/{id}/resolve", id).contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"rootCause": "원인", "correctiveAction": "조치"}"""))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(post("/api/quality-cases/{id}/reopen", id)).andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/quality-cases/{id}/revisions", id)).andExpect(status().isNotFound());
     }
 
     @Test
-    void 검사결과가_있는_품질사례_삭제시_409() throws Exception {
-        Long id = createCase();
-        jdbcTemplate.update("""
-                INSERT INTO inspection_result (quality_case_id, inspection_item, text_value, result_status, created_at)
-                VALUES (?, '표면 상태', '균열', 'FAIL', NOW())
-                """, id);
-        entityManager.clear();
+    void 삭제된_사례_복구시_삭제전_상태_그대로_200_노출job_추가() throws Exception {
+        Long id = createResolvedCase();
+        mockMvc.perform(delete("/api/quality-cases/{id}", id));
+        flushAndClear();
 
-        mockMvc.perform(delete("/api/quality-cases/{id}", id))
-                .andExpect(status().isConflict());
+        mockMvc.perform(post("/api/quality-cases/{id}/restore", id))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("RESOLVED"))
+                .andExpect(jsonPath("$.sourceVersion").value(1))
+                .andExpect(jsonPath("$.rootCause").value("용접 전류 저하"));
+        flushAndClear();
+
+        assertThat(jdbcTemplate.queryForObject("SELECT deleted_at IS NULL FROM quality_case WHERE id = ?", Boolean.class, id)).isTrue();
+        assertThat(visibilityJobCount(id)).isEqualTo(2);
+        mockMvc.perform(get("/api/quality-cases/{id}", id)).andExpect(status().isOk());
+    }
+
+    @Test
+    void 삭제되지_않은_사례_복구시_409() throws Exception {
+        Long id = createCase();
+        mockMvc.perform(post("/api/quality-cases/{id}/restore", id))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.detail").value("삭제된 품질사례만 복구할 수 있습니다. id=" + id));
+    }
+
+    @Test
+    void 없는_사례_복구시_404() throws Exception {
+        mockMvc.perform(post("/api/quality-cases/{id}/restore", Long.MAX_VALUE))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void 해결_취소시_OPEN_원인조치결과_비움_이력_버전증가_노출job() throws Exception {
+        Long id = createResolvedCase();
+
+        mockMvc.perform(post("/api/quality-cases/{id}/reopen", id))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("OPEN"))
+                .andExpect(jsonPath("$.rootCause").doesNotExist())
+                .andExpect(jsonPath("$.correctiveAction").doesNotExist())
+                .andExpect(jsonPath("$.resultSummary").doesNotExist())
+                .andExpect(jsonPath("$.sourceVersion").value(2));
+
+        assertThat(jdbcTemplate.queryForMap(
+                "SELECT version, root_cause, corrective_action, result_summary FROM quality_case_revision WHERE quality_case_id = ?", id))
+                .containsEntry("version", 1).containsEntry("root_cause", "용접 전류 저하")
+                .containsEntry("corrective_action", "전류 설정 복구").containsEntry("result_summary", "재발 없음");
+        assertThat(visibilityJobCount(id)).isEqualTo(1);
+    }
+
+    @Test
+    void OPEN_사례_해결_취소시_409() throws Exception {
+        Long id = createCase();
+        mockMvc.perform(post("/api/quality-cases/{id}/reopen", id))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.detail").value("해결 완료(RESOLVED)된 품질사례만 해결 취소할 수 있습니다. id=" + id));
+    }
+
+    @Test
+    void 없는_사례_해결_취소시_404() throws Exception {
+        mockMvc.perform(post("/api/quality-cases/{id}/reopen", Long.MAX_VALUE))
+                .andExpect(status().isNotFound());
     }
 
     @Test

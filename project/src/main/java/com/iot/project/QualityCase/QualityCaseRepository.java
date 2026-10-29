@@ -10,7 +10,12 @@ import java.util.Optional;
 
 public interface QualityCaseRepository extends JpaRepository<QualityCase, Long> {
 
-    // SELECT ... FOR UPDATE: 같은 사례의 resolve·수정 동시 요청을 한 줄로 세운다
+    // 삭제된 사례는 restore 외의 API에서 없는 것으로 다룬다 (404)
+    Optional<QualityCase> findByIdAndDeletedAtIsNull(Long id);
+
+    boolean existsByIdAndDeletedAtIsNull(Long id);
+
+    // SELECT ... FOR UPDATE: 같은 사례의 resolve·수정·취소·삭제·복구 동시 요청을 한 줄로 세운다 (삭제된 사례도 읽음)
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select q from QualityCase q where q.id = :id")
     Optional<QualityCase> findByIdForUpdate(Long id);
@@ -19,16 +24,17 @@ public interface QualityCaseRepository extends JpaRepository<QualityCase, Long> 
     @Query("""
             select q, j from QualityCase q
             left join IndexingJob j on j.qualityCase = q and j.sourceVersion = q.sourceVersion
+            where q.deletedAt is null
             order by q.id desc""")
     List<Object[]> findAllWithCurrentJob();
 
     @Query("""
             select q, j from QualityCase q
             left join IndexingJob j on j.qualityCase = q and j.sourceVersion = q.sourceVersion
-            where q.id = :id""")
+            where q.id = :id and q.deletedAt is null""")
     List<Object[]> findWithCurrentJobById(Long id);
 
-    // 인덱싱 처리기용: 트랜잭션 밖에서 문서 텍스트를 만들 수 있게 연관 엔티티까지 한 번에 읽는다
+    // 인덱싱 처리기용(삭제된 사례도 읽음): 트랜잭션 밖에서 문서 텍스트를 만들 수 있게 연관 엔티티까지 한 번에 읽는다
     @Query("""
             select q from QualityCase q
             join fetch q.product join fetch q.manufacturingProcess left join fetch q.equipment

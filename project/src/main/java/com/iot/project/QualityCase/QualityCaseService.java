@@ -5,6 +5,8 @@ import com.iot.project.Equipment.EquipmentNotFoundException;
 import com.iot.project.Equipment.EquipmentRepository;
 import com.iot.project.IndexingJob.IndexingJob;
 import com.iot.project.IndexingJob.IndexingJobRepository;
+import com.iot.project.IndexingJob.SearchVisibilityJob;
+import com.iot.project.IndexingJob.SearchVisibilityJobRepository;
 import com.iot.project.ManufacturingProcess.ManufacturingProcess;
 import com.iot.project.ManufacturingProcess.ManufacturingProcessNotFoundException;
 import com.iot.project.ManufacturingProcess.ManufacturingProcessRepository;
@@ -17,7 +19,6 @@ import com.iot.project.qdrant.QdrantClient;
 import com.iot.project.qdrant.ScoredPoint;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,6 +42,7 @@ public class QualityCaseService {
     private final ManufacturingProcessRepository manufacturingProcessRepository;
     private final EquipmentRepository equipmentRepository;
     private final IndexingJobRepository indexingJobRepository;
+    private final SearchVisibilityJobRepository visibilityJobRepository;
     private final QualityCaseRevisionRepository revisionRepository;
     private final EmbeddingClient embeddingClient;
     private final QdrantClient qdrantClient;
@@ -77,8 +79,7 @@ public class QualityCaseService {
     // 이전 버전 job이 진행 중이어도 막지 않는다 (처리기가 버전을 비교해 옛 job을 건너뜀)
     @Transactional
     public QualityCaseResponse update(Long id, QualityCaseUpdateRequest request) {
-        QualityCase qualityCase = qualityCaseRepository.findByIdForUpdate(id)
-                .orElseThrow(() -> new QualityCaseNotFoundException(id));
+        QualityCase qualityCase = getQualityCaseForUpdate(id);
         validateQuantity(request.productionQuantity(), request.defectQuantity());
         Product product = getProduct(request.productId());
         ManufacturingProcess process = getProcess(request.processId());
@@ -109,34 +110,53 @@ public class QualityCaseService {
     // 버전 내림차순. 보여주기만 하고 검색에는 쓰지 않는다
     @Transactional(readOnly = true)
     public List<QualityCaseRevisionResponse> findRevisions(Long id) {
-        if (!qualityCaseRepository.existsById(id)) {
+        if (!qualityCaseRepository.existsByIdAndDeletedAtIsNull(id)) {
             throw new QualityCaseNotFoundException(id);
         }
         return revisionRepository.findByQualityCaseIdOrderByVersionDesc(id).stream()
                 .map(QualityCaseRevisionResponse::from).toList();
     }
 
+    // 논리 삭제: OPEN·RESOLVED 모두, 상태·버전은 그대로. 검색 제외는 커밋 뒤 SearchVisibilityWorker가 Qdrant에 반영
+    // OPEN이어도 노출 job을 남긴다 (해결 취소 전 RESOLVED 시절 포인트가 남아 있을 수 있음)
     @Transactional
     public void delete(Long id) {
-        QualityCase qualityCase = getQualityCase(id);
-        if (qualityCase.getStatus() == CaseStatus.RESOLVED) {
-            throw new ResolvedQualityCaseDeleteException(id);
+        QualityCase qualityCase = getQualityCaseForUpdate(id);
+        qualityCase.delete();
+        visibilityJobRepository.save(new SearchVisibilityJob(qualityCase));
+    }
+
+    // 삭제 전 상태 그대로 되돌린다. RESOLVED면 Qdrant 벡터 버전이 현재 버전과 같을 때만 다시 검색된다
+    @Transactional
+    public QualityCaseResponse restore(Long id) {
+        QualityCase qualityCase = qualityCaseRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new QualityCaseNotFoundException(id));
+        if (!qualityCase.isDeleted()) {
+            throw new QualityCaseNotDeletedException(id);
         }
-        try {
-            qualityCaseRepository.delete(qualityCase);
-            // FK 위반을 커밋 시점이 아닌 여기서 감지하기 위해 즉시 flush
-            qualityCaseRepository.flush();
-        } catch (DataIntegrityViolationException e) {
-            throw new QualityCaseInUseException(id);
+        qualityCase.restore();
+        visibilityJobRepository.save(new SearchVisibilityJob(qualityCase));
+        return findById(id);
+    }
+
+    // 해결 취소: 직전 값을 이력에 남기고 원인/조치/결과를 비워 OPEN + 새 버전 (진행 중인 인덱싱 job은 처리기가 SUPERSEDED)
+    @Transactional
+    public QualityCaseResponse reopen(Long id) {
+        QualityCase qualityCase = getQualityCaseForUpdate(id);
+        if (qualityCase.getStatus() != CaseStatus.RESOLVED) {
+            throw new QualityCaseNotResolvedException(id);
         }
+        revisionRepository.save(new QualityCaseRevision(qualityCase));
+        qualityCase.reopen();
+        visibilityJobRepository.save(new SearchVisibilityJob(qualityCase));
+        return QualityCaseResponse.from(qualityCase);
     }
 
     // 확정 + 인덱싱 job(PENDING/WAITING)을 한 트랜잭션으로 기록하고 바로 응답한다
     // 임베딩·Qdrant는 커밋 뒤 IndexingWorker가 트랜잭션 밖에서 처리 (해결 완료와 검색 반영 완료는 별개)
     @Transactional
     public QualityCaseResponse resolve(Long id, QualityCaseResolveRequest request) {
-        QualityCase qualityCase = qualityCaseRepository.findByIdForUpdate(id)
-                .orElseThrow(() -> new QualityCaseNotFoundException(id));
+        QualityCase qualityCase = getQualityCaseForUpdate(id);
         if (qualityCase.getStatus() == CaseStatus.RESOLVED) {
             throw new QualityCaseAlreadyResolvedException(id);
         }
@@ -157,8 +177,8 @@ public class QualityCaseService {
     }
 
     // 디버그·성능 측정용: Analysis와 별개로 검색 단계(임베딩 → Qdrant → MySQL 대조)만 확인한다
-    // OPEN 사례 → 쿼리 텍스트 임베딩 → Qdrant top-k(searchable만) → MySQL에서 RESOLVED이고 버전이 같은 것만 (Qdrant 순서 유지)
-    // 버전 대조: 처리기가 옛 버전 벡터를 남겼거나 아직 새 버전을 반영하지 못한 경우를 거른다
+    // OPEN 사례 → 쿼리 텍스트 임베딩 → Qdrant top-k(searchable만) → MySQL에서 RESOLVED·삭제 안 됨·버전 같음만 (Qdrant 순서 유지)
+    // MySQL 대조: 처리기가 옛 버전 벡터를 남겼거나, 취소·삭제의 searchable=false가 아직 반영되지 않은 경우를 거른다
     // ponytail: 임베딩 동안 DB 커넥션을 쥠, 동시 요청 측정에서 문제가 되면 임베딩을 트랜잭션 밖으로
     @Transactional(readOnly = true)
     public List<SimilarCaseResponse> findSimilar(Long id) {
@@ -183,7 +203,7 @@ public class QualityCaseService {
 
         Map<Long, QualityCase> resolved = qualityCaseRepository.findAllById(points.stream().map(ScoredPoint::id).toList())
                 .stream()
-                .filter(c -> c.getStatus() == CaseStatus.RESOLVED)
+                .filter(c -> c.getStatus() == CaseStatus.RESOLVED && !c.isDeleted())
                 .collect(Collectors.toMap(QualityCase::getId, c -> c));
         return points.stream()
                 .filter(p -> resolved.containsKey(p.id())
@@ -193,7 +213,13 @@ public class QualityCaseService {
     }
 
     private QualityCase getQualityCase(Long id) {
-        return qualityCaseRepository.findById(id)
+        return qualityCaseRepository.findByIdAndDeletedAtIsNull(id)
+                .orElseThrow(() -> new QualityCaseNotFoundException(id));
+    }
+
+    private QualityCase getQualityCaseForUpdate(Long id) {
+        return qualityCaseRepository.findByIdForUpdate(id)
+                .filter(qualityCase -> !qualityCase.isDeleted())
                 .orElseThrow(() -> new QualityCaseNotFoundException(id));
     }
 

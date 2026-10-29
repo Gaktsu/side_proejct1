@@ -18,8 +18,8 @@ flowchart TD
     E2 -- 아니오: Qdrant 단계 재시작 --> V2
     E3 --> V2{upsert 직전<br/>버전 다시 같음?}
     V2 -- 아니오 --> SP2[/qdrant = SUPERSEDED/]
-    V2 -- 예 --> U[Qdrant upsert<br/>payload sourceVersion, searchable=true]
-    U --> OK[/qdrant COMPLETED<br/>검색 반영 완료/]
+    V2 -- 예 --> U[Qdrant upsert<br/>payload sourceVersion, searchable=false<br/>삭제 여부는 보지 않음]
+    U --> OK[/한 트랜잭션: qdrant COMPLETED +<br/>search_visibility_job PENDING 추가<br/>노출은 16번 처리기가 결정/]
 
     E -. 예외 .-> X{재시도 남음?<br/>최초 포함 5회}
     U -. 예외 .-> X
@@ -35,6 +35,7 @@ flowchart TD
     class SP1,SP2,W note
 ```
 
+- upsert는 항상 `searchable=false`. 검색 노출을 바꾸는 곳은 `SearchVisibilityWorker`(16번) 하나뿐이라 스레드 간 덮어쓰기 경합이 없다. 삭제된 사례도 벡터를 올려 두어 복구 때 다시 쓴다.
 - 재시도는 현재 상태를 다시 읽어 어느 단계에서 이어갈지 정한다. Qdrant 단계에서 다시 시작하면 벡터를 보존하지 않으므로 다시 임베딩한다.
 - 토큰 초과(`EmbeddingInputTooLongException`)는 재시도하지 않고 바로 FAILED (해결·수정 때 동기 검사하므로 사실상 발생하지 않음).
 - 재시도 횟수는 메모리에서 센다. 재시작하면 PENDING으로 돌아가 처음부터 다시 센다 (프로세스를 죽이는 job이 반복되면 `attempt_count` 도입 검토).

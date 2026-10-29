@@ -60,6 +60,28 @@ class IndexingWorkerTest {
 
         assertThat(job(jobId)).containsEntry("embedding_status", "COMPLETED").containsEntry("qdrant_status", "COMPLETED");
         verify(qdrantClient).upsert(caseId, vector, 1);
+        // upsert는 searchable=false라 노출 job이 있어야 검색에 나타난다
+        assertThat(visibilityJobCount(caseId)).isEqualTo(1);
+    }
+
+    private int visibilityJobCount(Long caseId) {
+        return jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM search_visibility_job WHERE quality_case_id = ? AND status = 'PENDING'", Integer.class, caseId);
+    }
+
+    @Test
+    void 삭제된_사례도_버전이_같으면_upsert하고_노출job을_남긴다() {
+        Long caseId = ResolveTestData.insertResolvedCase(jdbcTemplate, 1);
+        Long jobId = ResolveTestData.insertJob(jdbcTemplate, caseId, 1, "PENDING", "WAITING");
+        jdbcTemplate.update("UPDATE quality_case SET deleted_at = NOW() WHERE id = ?", caseId);
+        when(embeddingClient.embedDocument(anyString())).thenReturn(vector);
+
+        worker.pollOnce();
+
+        // 복구 때 다시 쓸 벡터. 노출 여부는 SearchVisibilityWorker가 삭제 상태를 보고 정한다
+        assertThat(job(jobId)).containsEntry("qdrant_status", "COMPLETED");
+        verify(qdrantClient).upsert(caseId, vector, 1);
+        assertThat(visibilityJobCount(caseId)).isEqualTo(1);
     }
 
     @Test
@@ -97,6 +119,23 @@ class IndexingWorkerTest {
         assertThat(job(oldJobId)).containsEntry("embedding_status", "SUPERSEDED").containsEntry("qdrant_status", "WAITING");
         verify(embeddingClient, never()).embedDocument(anyString());
         verify(qdrantClient, never()).upsert(anyLong(), any(), anyInt());
+    }
+
+    @Test
+    void 임베딩_도중에_사례가_수정되면_upsert_안하고_Qdrant는_SUPERSEDED() {
+        Long caseId = ResolveTestData.insertResolvedCase(jdbcTemplate, 1);
+        Long jobId = ResolveTestData.insertJob(jdbcTemplate, caseId, 1, "PENDING", "WAITING");
+        // 임베딩하는 사이에 다른 요청의 수정이 커밋된 상황 (source_version 1 → 2)
+        when(embeddingClient.embedDocument(anyString())).thenAnswer(invocation -> {
+            jdbcTemplate.update("UPDATE quality_case SET source_version = 2 WHERE id = ?", caseId);
+            return vector;
+        });
+
+        worker.pollOnce();
+
+        assertThat(job(jobId)).containsEntry("embedding_status", "COMPLETED").containsEntry("qdrant_status", "SUPERSEDED");
+        verify(qdrantClient, never()).upsert(anyLong(), any(), anyInt());
+        assertThat(visibilityJobCount(caseId)).isZero();
     }
 
     @Test

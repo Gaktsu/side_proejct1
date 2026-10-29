@@ -44,7 +44,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A([이력 조회 요청]) --> B{id의 품질사례가<br/>DB에 있음?}
+    A([이력 조회 요청]) --> B{id의 품질사례가<br/>DB에 있고 삭제 안 됨?}
     B -- 아니오 --> R404[/404 Not Found/]
     B -- 예 --> R200[/200 OK<br/>RESOLVED 수정 직전 값들, 버전 내림차순<br/>없으면 빈 배열/]
 
@@ -54,5 +54,6 @@ flowchart TD
     class R404 fail
 ```
 
+- 품질사례는 논리 삭제된 사례(`deleted_at` 있음)를 없는 것으로 다룬다: 단건 404, 목록에서 제외.
 - 품질사례 단건·목록 응답에는 현재 버전의 `embeddingStatus`/`qdrantStatus`가 함께 온다 (job 없으면 null). 현재 버전 job은 사례당 최대 1개라 left join 한 번으로 조회한다.
 

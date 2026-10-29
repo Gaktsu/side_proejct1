@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.Optional;
 import java.util.concurrent.Executors;
@@ -26,7 +27,9 @@ import java.util.concurrent.TimeUnit;
 public class IndexingWorker {
 
     private final IndexingJobRepository jobRepository;
+    private final SearchVisibilityJobRepository visibilityJobRepository;
     private final QualityCaseRepository qualityCaseRepository;
+    private final TransactionTemplate transactionTemplate;
     private final EmbeddingClient embeddingClient;
     private final QdrantClient qdrantClient;
     private final boolean enabled;
@@ -35,13 +38,16 @@ public class IndexingWorker {
     private final long[] retryDelaysSeconds;
     private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
 
-    public IndexingWorker(IndexingJobRepository jobRepository, QualityCaseRepository qualityCaseRepository,
+    public IndexingWorker(IndexingJobRepository jobRepository, SearchVisibilityJobRepository visibilityJobRepository,
+                          QualityCaseRepository qualityCaseRepository, TransactionTemplate transactionTemplate,
                           EmbeddingClient embeddingClient, QdrantClient qdrantClient,
                           @Value("${indexing.worker.enabled:true}") boolean enabled,
                           @Value("${indexing.poll-delay-ms:5000}") long pollDelayMs,
                           @Value("${indexing.retry-delays-seconds:30,60,120,240}") long[] retryDelaysSeconds) {
         this.jobRepository = jobRepository;
+        this.visibilityJobRepository = visibilityJobRepository;
         this.qualityCaseRepository = qualityCaseRepository;
+        this.transactionTemplate = transactionTemplate;
         this.embeddingClient = embeddingClient;
         this.qdrantClient = qdrantClient;
         this.enabled = enabled;
@@ -148,13 +154,19 @@ public class IndexingWorker {
         }
 
         // 임베딩하는 동안 수정됐을 수 있어 upsert 직전에 한 번 더 비교한다
+        // 삭제 여부는 보지 않는다: 삭제된 사례도 벡터는 올려 둬야 복구 때 다시 쓸 수 있고, 노출은 SearchVisibilityWorker가 정한다
         if (qualityCaseRepository.findSourceVersionById(caseId) != job.getSourceVersion().intValue()) {
             log.info("인덱싱 건너뜀(upsert 전) jobId={}", jobId);
             jobRepository.supersedeQdrant(jobId);
             return;
         }
         qdrantClient.upsert(caseId, vector, job.getSourceVersion());
-        jobRepository.completeQdrant(jobId);
+        // upsert는 searchable=false라 노출 job이 있어야 검색에 나타난다. 완료 기록과 한 트랜잭션으로 묶어
+        // 사이에 종료돼도 job이 빠지지 않게 한다 (Qdrant 단계가 PROCESSING으로 남아 기동 시 다시 처리)
+        transactionTemplate.executeWithoutResult(status -> {
+            jobRepository.completeQdrant(jobId);
+            visibilityJobRepository.save(new SearchVisibilityJob(qualityCaseRepository.getReferenceById(caseId)));
+        });
         log.info("인덱싱 완료 jobId={}, caseId={}, v{}, 임베딩 {}ms, upsert {}ms", jobId, caseId, job.getSourceVersion(),
                 (embedded - start) / 1_000_000, (System.nanoTime() - embedded) / 1_000_000);
     }

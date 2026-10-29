@@ -98,6 +98,9 @@ public class QualityCase {
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
+    // 논리 삭제 시각, NULL이면 삭제 안 됨 (업무 상태·버전은 그대로 둔다)
+    private LocalDateTime deletedAt;
+
     // 신규 품질문제는 OPEN 상태로 생성되고 원인/조치/결과는 비어 있다
     public QualityCase(String caseCode, Product product, ManufacturingProcess manufacturingProcess,
                        Equipment equipment, String lotNo, String title, String problemDescription,
@@ -157,5 +160,28 @@ public class QualityCase {
         this.correctiveAction = correctiveAction;
         this.resultSummary = resultSummary;
         this.sourceVersion++;
+    }
+
+    // 해결 취소: OPEN 규칙에 따라 원인/조치/결과를 비우고 새 버전이 된다 (직전 값은 QualityCaseRevision에)
+    public void reopen() {
+        this.rootCause = null;
+        this.correctiveAction = null;
+        this.resultSummary = null;
+        this.status = CaseStatus.OPEN;
+        this.sourceVersion++;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    // 내용이 바뀌지 않으므로 버전을 올리지 않는다 → 복구 때 기존 벡터를 다시 쓸 수 있다
+    public void delete() {
+        this.deletedAt = LocalDateTime.now();
+    }
+
+    public void restore() {
+        this.deletedAt = null;
+    }
+
+    public boolean isDeleted() {
+        return deletedAt != null;
     }
 }
