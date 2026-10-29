@@ -40,6 +40,7 @@ out/
 
 ### SQL ###
 *.sql
+!src/main/resources/db/migration/*.sql
 
 quality_retrieval_benchmark_v*/
 ### Docker ###
