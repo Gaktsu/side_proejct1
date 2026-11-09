@@ -28,6 +28,9 @@ public class EmbeddingClient {
     // 토크나이저와 모델을 따로 로딩한다: 토큰 수 검사는 토크나이저만 있으면 되므로 모델(약 7초, 1.7GB)을 기다리지 않는다
     private volatile HuggingFaceTokenizer tokenizer;
     private volatile OrtSession session;
+    // 임베딩 계산은 호출처(인덱싱·분석 처리기, /similar-cases)와 무관하게 한 번에 1건.
+    // 동시 계산은 건수만큼 ONNX 메모리 수위를 올리고 반환되지 않는다. 늘릴 때는 측정 후 잠금을 풀고 세션을 늘린다
+    private final Object embedLock = new Object();
 
     public EmbeddingClient(@Value("${embedding.model-dir:}") String modelDir) {
         this.modelDir = modelDir;
@@ -48,6 +51,11 @@ public class EmbeddingClient {
         encode(text);
     }
 
+    // 쿼리 텍스트(접두어 포함)가 토큰 상한 안인지만 확인한다 (분석 요청 트랜잭션 안에서 동기로 호출)
+    public void checkQueryLength(String text) {
+        encode(QUERY_PREFIX + text);
+    }
+
     private Encoding encode(String text) {
         Encoding encoding = tokenizer().encode(text);
         if (encoding.getIds().length > MAX_TOKENS) {
@@ -60,12 +68,14 @@ public class EmbeddingClient {
         Encoding encoding = encode(text);
         OrtSession s = session();
         OrtEnvironment env = OrtEnvironment.getEnvironment();
-        try (OnnxTensor ids = OnnxTensor.createTensor(env, new long[][]{encoding.getIds()});
-             OnnxTensor mask = OnnxTensor.createTensor(env, new long[][]{encoding.getAttentionMask()});
-             OrtSession.Result result = s.run(Map.of("input_ids", ids, "attention_mask", mask))) {
-            return ((float[][]) result.get(0).getValue())[0];
-        } catch (OrtException e) {
-            throw new IllegalStateException("임베딩 실행 실패", e);
+        synchronized (embedLock) {
+            try (OnnxTensor ids = OnnxTensor.createTensor(env, new long[][]{encoding.getIds()});
+                 OnnxTensor mask = OnnxTensor.createTensor(env, new long[][]{encoding.getAttentionMask()});
+                 OrtSession.Result result = s.run(Map.of("input_ids", ids, "attention_mask", mask))) {
+                return ((float[][]) result.get(0).getValue())[0];
+            } catch (OrtException e) {
+                throw new IllegalStateException("임베딩 실행 실패", e);
+            }
         }
     }
 

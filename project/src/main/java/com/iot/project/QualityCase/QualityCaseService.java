@@ -95,7 +95,7 @@ public class QualityCaseService {
             return QualityCaseResponse.from(qualityCase);
         }
 
-        if (isBlank(request.rootCause()) || isBlank(request.correctiveAction())) {
+        if (isNullOrBlank(request.rootCause()) || isNullOrBlank(request.correctiveAction())) {
             throw new InvalidResolutionFieldsException("해결된 품질사례를 수정할 때는 원인과 조치가 필요합니다. id=" + id);
         }
         revisionRepository.save(new QualityCaseRevision(qualityCase));
@@ -223,7 +223,8 @@ public class QualityCaseService {
                 .orElseThrow(() -> new QualityCaseNotFoundException(id));
     }
 
-    private static boolean isBlank(String value) {
+    // helper: String.isBlank()와 달리 null도 true
+    private static boolean isNullOrBlank(String value) {
         return value == null || value.isBlank();
     }
 
