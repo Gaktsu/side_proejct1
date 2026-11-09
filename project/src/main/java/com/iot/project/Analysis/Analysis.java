@@ -27,14 +27,14 @@ public class Analysis {
     @ManyToOne(fetch = FetchType.LAZY)
     private QualityCase qualityCase;
 
-    // 분석 당시 사용한 입력 내용
-    @Column(columnDefinition = "TEXT", nullable = false)
-    private String queryText;
-
     // 분석 상태
     @Column(length = 30, nullable = false)
     @Enumerated(EnumType.STRING)
     private AnalysisStatus analysisStatus;
+
+    // FAILED일 때만: 분석 자체가 실패한 이유 (후보가 걸러진 것은 실패가 아니라 여기 들어가지 않음)
+    @Column(columnDefinition = "TEXT")
+    private String errorMessage;
 
     // AI가 생성한 원인 후보
     @JdbcTypeCode(SqlTypes.JSON)
@@ -53,4 +53,10 @@ public class Analysis {
     // 분석 실행 시각
     @Column(nullable = false)
     private LocalDateTime createdAt;
+
+    public Analysis(QualityCase qualityCase) {
+        this.qualityCase = qualityCase;
+        this.analysisStatus = AnalysisStatus.PENDING;
+        this.createdAt = LocalDateTime.now();
+    }
 }

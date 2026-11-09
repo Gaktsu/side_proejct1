@@ -1,9 +1,12 @@
 package com.iot.project.qdrant;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
+import java.net.http.HttpClient;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -14,6 +17,10 @@ public class QdrantClient {
 
     static final int VECTOR_SIZE = 1024;
     static final String DISTANCE = "Cosine";
+    // MVP 잠정값 (근거: 설계/LLD/성능_점검_기준_및_테스트_계획.md 1-1절). 멈춘 호출을 끊는 상한이지 응답시간 목표가 아니다.
+    // 정상 응답은 수십 ms. 타임아웃은 일반 예외와 같아 /similar-cases는 503, 처리기는 각자의 실패 처리를 탄다
+    static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(2);
+    static final Duration READ_TIMEOUT = Duration.ofSeconds(5);
     // payload가 없는 옛 포인트(LLD 1 이전 적재분)도 이 조건에 걸려 검색에서 빠진다
     private static final Map<String, Object> SEARCHABLE_ONLY =
             Map.of("must", List.of(Map.of("key", "searchable", "match", Map.of("value", true))));
@@ -24,7 +31,10 @@ public class QdrantClient {
 
     public QdrantClient(@Value("${qdrant.url}") String url,
                         @Value("${qdrant.collection:quality_case_vectors}") String collection) {
-        this.restClient = RestClient.builder().baseUrl(url).build();
+        JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(
+                HttpClient.newBuilder().connectTimeout(CONNECT_TIMEOUT).build());
+        requestFactory.setReadTimeout(READ_TIMEOUT);
+        this.restClient = RestClient.builder().baseUrl(url).requestFactory(requestFactory).build();
         this.collection = collection;
     }
 

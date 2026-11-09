@@ -17,7 +17,7 @@ public final class QualityCaseDocument {
     }
 
     // OPEN 사례 → 검색 쿼리 텍스트. 원인·조치는 아직 없으므로 문제 발생 시점에 아는 정보만 (저장하지 않아 바꿔도 재적재 불필요)
-    static String toQueryText(QualityCase qualityCase) {
+    public static String toQueryText(QualityCase qualityCase) {
         StringJoiner text = new StringJoiner("\n");
         text.add("공정: " + qualityCase.getManufacturingProcess().getName());
         if (qualityCase.getEquipment() != null) {
