@@ -1,0 +1,53 @@
+{
+  "_note": "평가 질의 = OPEN 사례(원인·조치 없음). relevant = 정답, confusing = 정답보다 위에 오면 안 되는 사례. 같은 클러스터의 SIMILAR는 어느 쪽에도 넣지 않는다. 질의 제목은 사례 제목과 겹치지 않게 쓴다",
+  "queries": [
+    {
+      "queryId": "Q1", "clusterId": "C1", "relevant": ["G101"], "confusing": ["G103"],
+      "productCode": "SYN-P-01", "processCode": "SYN-PR-INJ", "equipmentCode": "SYN-EQ-INJ-01",
+      "lotNo": "SYN-L-9001", "defectType": "휨 변형",
+      "title": "도어 트림 하우징 모서리 휨",
+      "problemDescription": "금형 리브 형상을 수정한 뒤 첫 로트부터 우측 모서리 휨이 나왔다. 성형 조건과 냉각 시간은 변경 이력이 없다.",
+      "productionQuantity": 1000, "defectQuantity": 70, "occurredAt": "2026-10-01T09:00:00"
+    },
+    {
+      "queryId": "Q2", "clusterId": "C2", "relevant": ["G201"], "confusing": ["G203"],
+      "productCode": "SYN-P-02", "processCode": "SYN-PR-PRS", "equipmentCode": "SYN-EQ-PRS-01",
+      "lotNo": "SYN-L-9002", "defectType": "버 과다",
+      "title": "시트 레일 브래킷 버 높이 초과",
+      "problemDescription": "다이 연마 주기를 넘겨 계속 생산하던 중 버 높이가 기준을 넘었다. 소재는 기존과 같은 공급사·같은 규격이다.",
+      "productionQuantity": 3000, "defectQuantity": 190, "occurredAt": "2026-10-02T09:00:00"
+    },
+    {
+      "queryId": "Q3", "clusterId": "C3", "relevant": ["G301"], "confusing": ["G303"],
+      "productCode": "SYN-P-03", "processCode": "SYN-PR-SPW", "equipmentCode": "SYN-EQ-SPW-01",
+      "lotNo": "SYN-L-9003", "defectType": "용접 강도 부족",
+      "title": "크로스멤버 너깃 직경 미달",
+      "problemDescription": "전극 팁 드레싱 주기를 놓친 뒤 파괴 검사에서 너깃 직경이 부족했다. 판재 표면 상태는 평소와 같았다.",
+      "productionQuantity": 800, "defectQuantity": 30, "occurredAt": "2026-10-03T09:00:00"
+    },
+    {
+      "queryId": "Q4", "clusterId": "C4", "relevant": ["G111"], "confusing": ["G113"],
+      "productCode": "SYN-P-01", "processCode": "SYN-PR-INJ", "equipmentCode": "SYN-EQ-INJ-01",
+      "lotNo": "SYN-L-9004", "defectType": "휨 변형",
+      "title": "도어 트림 하우징 중앙 휨",
+      "problemDescription": "보압 시간을 줄이는 조건 변경 후 중앙부 휨이 생겼다. 원료는 신재만 쓰고 있고 혼합 비율 변화는 없다.",
+      "productionQuantity": 1200, "defectQuantity": 60, "occurredAt": "2026-10-04T09:00:00"
+    },
+    {
+      "queryId": "Q5", "clusterId": "C5", "relevant": ["G211"], "confusing": ["G213"],
+      "productCode": "SYN-P-02", "processCode": "SYN-PR-PRS", "equipmentCode": "SYN-EQ-PRS-01",
+      "lotNo": "SYN-L-9005", "defectType": "버 과다",
+      "title": "시트 레일 브래킷 편측 버",
+      "problemDescription": "펀치 날 끝이 깨진 것을 발견한 뒤 한쪽 변에만 버가 생겼다. 금형 체결 상태는 점검 결과 이상이 없다.",
+      "productionQuantity": 2500, "defectQuantity": 110, "occurredAt": "2026-10-05T09:00:00"
+    },
+    {
+      "queryId": "Q6", "clusterId": "C6", "relevant": ["G311"], "confusing": ["G313"],
+      "productCode": "SYN-P-03", "processCode": "SYN-PR-SPW", "equipmentCode": "SYN-EQ-SPW-01",
+      "lotNo": "SYN-L-9006", "defectType": "용접 강도 부족",
+      "title": "크로스멤버 타점 강도 미달",
+      "problemDescription": "압축 공기 압력 저하 경보 이후 타점 강도가 기준에 못 미쳤다. 타점 배치는 설계 변경 없이 기존과 같다.",
+      "productionQuantity": 900, "defectQuantity": 40, "occurredAt": "2026-10-06T09:00:00"
+    }
+  ]
+}
