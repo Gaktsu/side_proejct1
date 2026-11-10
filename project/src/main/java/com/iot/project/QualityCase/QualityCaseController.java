@@ -26,7 +26,7 @@ public class QualityCaseController {
     }
 
     @GetMapping("/{id}")
-    public QualityCaseResponse findById(@PathVariable Long id) {
+    public QualityCaseDetailResponse findById(@PathVariable Long id) {
         return qualityCaseService.findById(id);
     }
 
