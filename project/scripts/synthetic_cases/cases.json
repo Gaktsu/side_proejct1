@@ -1,0 +1,319 @@
+{
+  "_note": "흐름 검증용 직접 작성 가상 데이터. 실제 사례가 아니며 제조업 내용은 검증하지 않았다. 클러스터 = 기준(ANCHOR) + 유사(SIMILAR, 같은 증상·다른 원인) + 혼동(CONFUSING, 기준 원인을 부정문으로 언급 + 다른 원인). 공정마다 같은 불량 클러스터 2개 + 다른 불량 잡음(NOISE) 3건. 제목은 역할끼리·질의와 겹치지 않게 따로 쓴다",
+  "products": [
+    { "productCode": "SYN-P-01", "name": "도어 트림 하우징", "modelName": "SYN-DT" },
+    { "productCode": "SYN-P-02", "name": "시트 레일 브래킷", "modelName": "SYN-SR" },
+    { "productCode": "SYN-P-03", "name": "리어 플로어 크로스멤버", "modelName": "SYN-RF" }
+  ],
+  "processes": [
+    { "processCode": "SYN-PR-INJ", "name": "사출 성형" },
+    { "processCode": "SYN-PR-PRS", "name": "프레스 전단" },
+    { "processCode": "SYN-PR-SPW", "name": "스폿 용접" }
+  ],
+  "equipments": [
+    { "equipmentCode": "SYN-EQ-INJ-01", "name": "사출 성형기 1호기", "processCode": "SYN-PR-INJ" },
+    { "equipmentCode": "SYN-EQ-PRS-01", "name": "300톤 프레스 1호기", "processCode": "SYN-PR-PRS" },
+    { "equipmentCode": "SYN-EQ-SPW-01", "name": "스폿 용접 로봇 1호기", "processCode": "SYN-PR-SPW" }
+  ],
+  "cases": [
+    {
+      "genId": "G101", "clusterId": "C1", "role": "ANCHOR",
+      "productCode": "SYN-P-01", "processCode": "SYN-PR-INJ", "equipmentCode": "SYN-EQ-INJ-01",
+      "lotNo": "SYN-L-1001", "defectType": "휨 변형",
+      "title": "하우징 우측 끝단 들뜸",
+      "problemDescription": "금형 리브 형상 수정 후 첫 생산 로트부터 우측 모서리가 들뜨는 휨이 발생했다. 평면도 측정에서 우측 끝단이 기준보다 크게 벗어났고 좌측은 정상이었다.",
+      "productionQuantity": 1200, "defectQuantity": 96, "occurredAt": "2026-09-02T09:30:00",
+      "rootCause": "금형 리브 형상 변경으로 우측 살 두께가 두꺼워져 냉각 중 수축 편차가 커짐",
+      "correctiveAction": "리브 두께를 변경 전 치수로 재가공하고 초도품 평면도를 재검증함",
+      "resultSummary": "재가공 후 3개 로트에서 휨 불량이 발생하지 않음"
+    },
+    {
+      "genId": "G102", "clusterId": "C1", "role": "SIMILAR",
+      "productCode": "SYN-P-01", "processCode": "SYN-PR-INJ", "equipmentCode": "SYN-EQ-INJ-01",
+      "lotNo": "SYN-L-1002", "defectType": "휨 변형",
+      "title": "생산 중반 이후 모서리 휨 증가",
+      "problemDescription": "생산 중반 이후 모서리 휨이 간헐적으로 늘었다. 금형 표면 온도를 재보니 고정측과 가동측 온도 차이가 평소보다 컸다.",
+      "productionQuantity": 1500, "defectQuantity": 62, "occurredAt": "2026-09-10T14:00:00",
+      "rootCause": "가동측 냉각 회로에 스케일이 쌓여 유량이 줄면서 금형 냉각이 불균형해짐",
+      "correctiveAction": "냉각 회로를 세척하고 회로별 유량계 점검을 일상 점검 항목에 추가함",
+      "resultSummary": "세척 후 금형 온도 차이가 정상 범위로 돌아오고 휨 불량률이 감소함"
+    },
+    {
+      "genId": "G103", "clusterId": "C1", "role": "CONFUSING",
+      "productCode": "SYN-P-01", "processCode": "SYN-PR-INJ", "equipmentCode": "SYN-EQ-INJ-01",
+      "lotNo": "SYN-L-1003", "defectType": "휨 변형",
+      "title": "사이클 단축 후 평면도 불량",
+      "problemDescription": "우측 모서리 휨이 발생했다. 금형 형상 수정 이력은 없었고, 사이클 단축을 위해 냉각 시간 설정이 이전보다 짧게 바뀌어 있었다.",
+      "productionQuantity": 1300, "defectQuantity": 88, "occurredAt": "2026-09-18T10:15:00",
+      "rootCause": "냉각 시간 단축으로 취출 시점에 제품이 충분히 굳지 않음",
+      "correctiveAction": "냉각 시간을 표준 조건으로 되돌리고 조건 변경 시 승인 절차를 적용함",
+      "resultSummary": "표준 조건 복원 후 휨 불량이 재발하지 않음"
+    },
+    {
+      "genId": "G111", "clusterId": "C4", "role": "ANCHOR",
+      "productCode": "SYN-P-01", "processCode": "SYN-PR-INJ", "equipmentCode": "SYN-EQ-INJ-01",
+      "lotNo": "SYN-L-1011", "defectType": "휨 변형",
+      "title": "하우징 중앙부 오목 변형",
+      "problemDescription": "보압 시간 설정을 줄인 뒤 중앙부가 오목하게 휘는 불량이 나왔다. 두꺼운 보스 주변의 치수가 기준보다 작게 측정되었다.",
+      "productionQuantity": 1400, "defectQuantity": 77, "occurredAt": "2026-09-04T10:00:00",
+      "rootCause": "보압 시간 부족으로 두꺼운 부위에 수지가 충분히 보충되지 않아 수축이 커짐",
+      "correctiveAction": "보압 시간을 표준값으로 되돌리고 게이트 실 시간 측정으로 보압 조건을 재설정함",
+      "resultSummary": "조건 재설정 후 중앙부 변형이 기준 이내로 들어옴"
+    },
+    {
+      "genId": "G112", "clusterId": "C4", "role": "SIMILAR",
+      "productCode": "SYN-P-01", "processCode": "SYN-PR-INJ", "equipmentCode": "SYN-EQ-INJ-01",
+      "lotNo": "SYN-L-1012", "defectType": "휨 변형",
+      "title": "출하 검사에서 하우징 뒤틀림 발견",
+      "problemDescription": "성형 직후 검사는 합격했지만 다음 날 출하 검사에서 뒤틀림이 발견되었다. 취출 직후 제품을 겹쳐서 적재하고 있었다.",
+      "productionQuantity": 1600, "defectQuantity": 120, "occurredAt": "2026-09-14T16:20:00",
+      "rootCause": "충분히 식지 않은 제품을 겹쳐 적재해 하중으로 변형이 고정됨",
+      "correctiveAction": "냉각 지그에 한 개씩 올려 식힌 뒤 적재하도록 작업 표준을 변경함",
+      "resultSummary": "적재 방식 변경 후 출하 검사 뒤틀림이 사라짐"
+    },
+    {
+      "genId": "G113", "clusterId": "C4", "role": "CONFUSING",
+      "productCode": "SYN-P-01", "processCode": "SYN-PR-INJ", "equipmentCode": "SYN-EQ-INJ-01",
+      "lotNo": "SYN-L-1013", "defectType": "휨 변형",
+      "title": "원료 교체 후 하우징 휨",
+      "problemDescription": "중앙부 휨이 발생했다. 보압 조건은 변경 이력이 없었고 표준 그대로였다. 같은 시기에 재생 원료 혼합 비율이 높아져 있었다.",
+      "productionQuantity": 1450, "defectQuantity": 70, "occurredAt": "2026-09-24T09:40:00",
+      "rootCause": "재생 원료 비율 증가로 수지 수축률이 달라져 변형이 커짐",
+      "correctiveAction": "재생 원료 혼합 비율을 기준 이하로 제한하고 혼합 기록을 관리함",
+      "resultSummary": "혼합 비율 복원 후 휨 불량률이 이전 수준으로 돌아옴"
+    },
+    {
+      "genId": "G121", "clusterId": "N1", "role": "NOISE",
+      "productCode": "SYN-P-01", "processCode": "SYN-PR-INJ", "equipmentCode": "SYN-EQ-INJ-01",
+      "lotNo": "SYN-L-1021", "defectType": "미성형",
+      "title": "하우징 클립 끝부분 덜 채워짐",
+      "problemDescription": "클립 끝부분이 덜 채워진 제품이 나왔다. 해당 위치 금형 벤트에 가스 탄 자국이 있었다.",
+      "productionQuantity": 1300, "defectQuantity": 45, "occurredAt": "2026-09-06T11:00:00",
+      "rootCause": "벤트 막힘으로 가스가 빠지지 못해 수지가 끝까지 채워지지 않음",
+      "correctiveAction": "벤트를 청소하고 벤트 청소 주기를 설정함",
+      "resultSummary": "청소 후 미성형이 발생하지 않음"
+    },
+    {
+      "genId": "G122", "clusterId": "N1", "role": "NOISE",
+      "productCode": "SYN-P-01", "processCode": "SYN-PR-INJ", "equipmentCode": "SYN-EQ-INJ-01",
+      "lotNo": "SYN-L-1022", "defectType": "은줄",
+      "title": "하우징 표면 은색 줄무늬",
+      "problemDescription": "표면에 게이트 방향으로 은색 줄무늬가 나타났다. 건조기 온도 기록이 설정값보다 낮았다.",
+      "productionQuantity": 1100, "defectQuantity": 60, "occurredAt": "2026-09-16T08:30:00",
+      "rootCause": "원료 건조 부족으로 수분이 기화하며 표면에 줄무늬가 생김",
+      "correctiveAction": "건조기 히터를 수리하고 투입 전 수분율 확인을 추가함",
+      "resultSummary": "수리 후 은줄 불량이 사라짐"
+    },
+    {
+      "genId": "G123", "clusterId": "N1", "role": "NOISE",
+      "productCode": "SYN-P-01", "processCode": "SYN-PR-INJ", "equipmentCode": "SYN-EQ-INJ-01",
+      "lotNo": "SYN-L-1023", "defectType": "싱크마크",
+      "title": "보스 반대면 표면 꺼짐",
+      "problemDescription": "두꺼운 보스 반대쪽 외관 면이 움푹 꺼져 보였다. 실린더 온도가 상한 쪽으로 설정되어 있었다.",
+      "productionQuantity": 1250, "defectQuantity": 50, "occurredAt": "2026-09-26T13:00:00",
+      "rootCause": "수지 온도가 높아 두꺼운 부위 수축량이 커짐",
+      "correctiveAction": "실린더 온도를 표준 범위 중앙값으로 조정함",
+      "resultSummary": "조정 후 외관 꺼짐이 기준 이내로 들어옴"
+    },
+
+    {
+      "genId": "G201", "clusterId": "C2", "role": "ANCHOR",
+      "productCode": "SYN-P-02", "processCode": "SYN-PR-PRS", "equipmentCode": "SYN-EQ-PRS-01",
+      "lotNo": "SYN-L-2001", "defectType": "버 과다",
+      "title": "브래킷 절단면 거스러미 증가",
+      "problemDescription": "다이 연마 주기를 넘긴 상태로 생산하던 중 전단면 버 높이가 기준을 넘었다. 전단면의 파단면 비율이 평소보다 커 보였다.",
+      "productionQuantity": 3000, "defectQuantity": 210, "occurredAt": "2026-09-05T08:40:00",
+      "rootCause": "다이 날 마모로 펀치와 다이 사이 클리어런스가 커짐",
+      "correctiveAction": "다이를 재연마하고 타발 수 기준 연마 주기를 관리 대장에 반영함",
+      "resultSummary": "재연마 후 버 높이가 기준 이내로 유지됨"
+    },
+    {
+      "genId": "G202", "clusterId": "C2", "role": "SIMILAR",
+      "productCode": "SYN-P-02", "processCode": "SYN-PR-PRS", "equipmentCode": "SYN-EQ-PRS-01",
+      "lotNo": "SYN-L-2002", "defectType": "버 과다",
+      "title": "코일 교체 직후 버 발생",
+      "problemDescription": "새 코일로 교체한 직후부터 버가 커졌다. 같은 금형으로 이전 코일을 쓸 때는 문제가 없었고 소재 두께가 상한 근처로 측정되었다.",
+      "productionQuantity": 2800, "defectQuantity": 150, "occurredAt": "2026-09-12T13:20:00",
+      "rootCause": "소재 두께가 상한에 가까운 코일이 들어와 상대 클리어런스가 부족해짐",
+      "correctiveAction": "해당 코일을 격리하고 입고 검사에 두께 측정 샘플 수를 늘림",
+      "resultSummary": "코일 교체 후 버 높이가 정상으로 돌아옴"
+    },
+    {
+      "genId": "G203", "clusterId": "C2", "role": "CONFUSING",
+      "productCode": "SYN-P-02", "processCode": "SYN-PR-PRS", "equipmentCode": "SYN-EQ-PRS-01",
+      "lotNo": "SYN-L-2003", "defectType": "버 과다",
+      "title": "소재 성적서 이상 로트 버 불량",
+      "problemDescription": "전단면 버 높이가 기준을 넘었다. 다이는 최근 연마하여 연마 주기 이내였고 클리어런스도 정상으로 측정되었다. 소재 경도 성적서 값이 평소보다 높았다.",
+      "productionQuantity": 3100, "defectQuantity": 180, "occurredAt": "2026-09-20T09:00:00",
+      "rootCause": "경도가 높은 소재 로트가 투입되어 전단 시 파단이 고르지 않음",
+      "correctiveAction": "공급사에 소재 경도 관리 강화를 요청하고 해당 로트 사용을 중지함",
+      "resultSummary": "정상 경도 소재로 바꾼 뒤 버 불량이 해소됨"
+    },
+    {
+      "genId": "G211", "clusterId": "C5", "role": "ANCHOR",
+      "productCode": "SYN-P-02", "processCode": "SYN-PR-PRS", "equipmentCode": "SYN-EQ-PRS-01",
+      "lotNo": "SYN-L-2011", "defectType": "버 과다",
+      "title": "브래킷 한쪽 변에만 버 집중",
+      "problemDescription": "펀치 날 끝 일부가 깨진 것이 확인된 시점부터 한쪽 변에만 버가 크게 생겼다. 다른 변의 전단면은 정상이었다.",
+      "productionQuantity": 2600, "defectQuantity": 140, "occurredAt": "2026-09-07T10:30:00",
+      "rootCause": "펀치 날 치핑으로 해당 구간의 전단이 제대로 되지 않음",
+      "correctiveAction": "펀치를 교체하고 교대마다 펀치 날 육안 점검을 추가함",
+      "resultSummary": "펀치 교체 후 한쪽 변 버가 사라짐"
+    },
+    {
+      "genId": "G212", "clusterId": "C5", "role": "SIMILAR",
+      "productCode": "SYN-P-02", "processCode": "SYN-PR-PRS", "equipmentCode": "SYN-EQ-PRS-01",
+      "lotNo": "SYN-L-2012", "defectType": "버 과다",
+      "title": "이송 이상 후 브래킷 버 불량",
+      "problemDescription": "피더 이송 이상 알람이 몇 차례 뜬 뒤 버가 늘었다. 소재가 다이 기준 위치보다 조금씩 어긋나 들어가고 있었다.",
+      "productionQuantity": 2900, "defectQuantity": 95, "occurredAt": "2026-09-17T15:10:00",
+      "rootCause": "피더 이송 피치가 틀어져 소재가 정위치에서 전단되지 않음",
+      "correctiveAction": "피더 피치를 재설정하고 파일럿 핀 위치 검출 센서를 점검함",
+      "resultSummary": "재설정 후 이송 알람과 버 불량이 함께 사라짐"
+    },
+    {
+      "genId": "G213", "clusterId": "C5", "role": "CONFUSING",
+      "productCode": "SYN-P-02", "processCode": "SYN-PR-PRS", "equipmentCode": "SYN-EQ-PRS-01",
+      "lotNo": "SYN-L-2013", "defectType": "버 과다",
+      "title": "금형 정비 후 편측 버 발생",
+      "problemDescription": "한쪽 변에 버가 크게 생겼다. 펀치 날은 깨짐 없이 정상이었다. 금형 정비 후 다이 체결 볼트 하나가 규정 토크보다 느슨했다.",
+      "productionQuantity": 2700, "defectQuantity": 130, "occurredAt": "2026-09-27T11:20:00",
+      "rootCause": "다이 체결 볼트 풀림으로 다이가 틀어져 한쪽 클리어런스가 커짐",
+      "correctiveAction": "볼트를 규정 토크로 체결하고 정비 후 토크 확인을 체크리스트에 넣음",
+      "resultSummary": "재체결 후 편측 버가 사라짐"
+    },
+    {
+      "genId": "G221", "clusterId": "N2", "role": "NOISE",
+      "productCode": "SYN-P-02", "processCode": "SYN-PR-PRS", "equipmentCode": "SYN-EQ-PRS-01",
+      "lotNo": "SYN-L-2021", "defectType": "크랙",
+      "title": "브래킷 굽힘부 갈라짐",
+      "problemDescription": "굽힘 부위 바깥쪽에 미세한 갈라짐이 생겼다. 굽힘 펀치 끝 반경이 마모로 작아져 있었다.",
+      "productionQuantity": 2500, "defectQuantity": 75, "occurredAt": "2026-09-09T09:20:00",
+      "rootCause": "굽힘 펀치 반경 마모로 굽힘부 변형률이 과도해짐",
+      "correctiveAction": "굽힘 펀치를 교체하고 반경 측정 주기를 정함",
+      "resultSummary": "교체 후 갈라짐이 발생하지 않음"
+    },
+    {
+      "genId": "G222", "clusterId": "N2", "role": "NOISE",
+      "productCode": "SYN-P-02", "processCode": "SYN-PR-PRS", "equipmentCode": "SYN-EQ-PRS-01",
+      "lotNo": "SYN-L-2022", "defectType": "주름",
+      "title": "브래킷 플랜지 주름",
+      "problemDescription": "플랜지 부위에 물결 모양 주름이 생겼다. 패드 압력이 설정값보다 낮게 나오고 있었다.",
+      "productionQuantity": 2400, "defectQuantity": 66, "occurredAt": "2026-09-19T14:40:00",
+      "rootCause": "패드 압력 부족으로 성형 중 소재가 눌리지 않아 주름이 생김",
+      "correctiveAction": "패드 쿠션 압력을 재설정하고 압력 게이지를 교체함",
+      "resultSummary": "재설정 후 주름 불량이 사라짐"
+    },
+    {
+      "genId": "G223", "clusterId": "N2", "role": "NOISE",
+      "productCode": "SYN-P-02", "processCode": "SYN-PR-PRS", "equipmentCode": "SYN-EQ-PRS-01",
+      "lotNo": "SYN-L-2023", "defectType": "치수 불량",
+      "title": "브래킷 홀 위치 벗어남",
+      "problemDescription": "피어싱 홀 위치가 공차를 벗어났다. 파일럿 핀 끝이 마모되어 소재 위치 결정이 느슨했다.",
+      "productionQuantity": 2600, "defectQuantity": 58, "occurredAt": "2026-09-28T10:10:00",
+      "rootCause": "파일럿 핀 마모로 소재 위치 결정 정밀도가 떨어짐",
+      "correctiveAction": "파일럿 핀을 교체하고 마모 점검 항목에 추가함",
+      "resultSummary": "교체 후 홀 위치가 공차 안으로 들어옴"
+    },
+
+    {
+      "genId": "G301", "clusterId": "C3", "role": "ANCHOR",
+      "productCode": "SYN-P-03", "processCode": "SYN-PR-SPW", "equipmentCode": "SYN-EQ-SPW-01",
+      "lotNo": "SYN-L-3001", "defectType": "용접 강도 부족",
+      "title": "크로스멤버 파괴 검사 불합격",
+      "problemDescription": "전극 팁 드레싱이 주기대로 실시되지 않은 상태에서 파괴 검사 결과 너깃 직경이 기준에 못 미쳤다. 전극 팁 끝단이 뭉개져 넓어져 있었다.",
+      "productionQuantity": 800, "defectQuantity": 40, "occurredAt": "2026-09-08T11:10:00",
+      "rootCause": "팁 드레싱 누락으로 전극 접촉 면적이 커져 전류 밀도가 낮아짐",
+      "correctiveAction": "팁 드레싱을 실시하고 타점 수 기준 자동 드레싱 알람을 설정함",
+      "resultSummary": "드레싱 후 파괴 검사에서 너깃 직경이 기준을 만족함"
+    },
+    {
+      "genId": "G302", "clusterId": "C3", "role": "SIMILAR",
+      "productCode": "SYN-P-03", "processCode": "SYN-PR-SPW", "equipmentCode": "SYN-EQ-SPW-01",
+      "lotNo": "SYN-L-3002", "defectType": "용접 강도 부족",
+      "title": "차종 전환 후 용접부 박리",
+      "problemDescription": "인장 검사에서 일부 타점이 쉽게 박리되었다. 용접 조건 이력을 확인하니 다른 차종 생산 후 전류 설정이 원래 값으로 돌아오지 않았다.",
+      "productionQuantity": 900, "defectQuantity": 55, "occurredAt": "2026-09-15T15:30:00",
+      "rootCause": "차종 전환 후 용접 전류 설정값이 낮은 값으로 남아 입열이 부족함",
+      "correctiveAction": "차종별 용접 조건을 프로그램 번호로 고정하고 전환 시 조건 확인을 의무화함",
+      "resultSummary": "조건 복원 후 박리 불량이 발생하지 않음"
+    },
+    {
+      "genId": "G303", "clusterId": "C3", "role": "CONFUSING",
+      "productCode": "SYN-P-03", "processCode": "SYN-PR-SPW", "equipmentCode": "SYN-EQ-SPW-01",
+      "lotNo": "SYN-L-3003", "defectType": "용접 강도 부족",
+      "title": "판재 표면 오염 로트 용접 불량",
+      "problemDescription": "파괴 검사에서 너깃 직경이 기준에 못 미쳤다. 전극 팁 드레싱은 주기대로 실시되었고 팁 형상도 정상이었다. 판재 표면에 방청유가 평소보다 많이 묻어 있었다.",
+      "productionQuantity": 850, "defectQuantity": 35, "occurredAt": "2026-09-22T10:45:00",
+      "rootCause": "판재 표면 방청유 과다로 접촉 저항이 불안정해져 너깃이 충분히 형성되지 않음",
+      "correctiveAction": "공급사에 방청유 도포량 기준을 요청하고 투입 전 표면 상태 점검을 추가함",
+      "resultSummary": "방청유 기준 준수 소재 투입 후 너깃 직경이 기준을 만족함"
+    },
+    {
+      "genId": "G311", "clusterId": "C6", "role": "ANCHOR",
+      "productCode": "SYN-P-03", "processCode": "SYN-PR-SPW", "equipmentCode": "SYN-EQ-SPW-01",
+      "lotNo": "SYN-L-3011", "defectType": "용접 강도 부족",
+      "title": "오후 생산분 타점 강도 저하",
+      "problemDescription": "공장 압축 공기 압력 저하 경보가 뜬 오후부터 타점 강도가 떨어졌다. 용접건 실린더의 가압력이 설정값보다 낮게 측정되었다.",
+      "productionQuantity": 950, "defectQuantity": 48, "occurredAt": "2026-09-11T14:50:00",
+      "rootCause": "압축 공기 압력 저하로 용접건 가압력이 부족해 접촉 상태가 불안정해짐",
+      "correctiveAction": "압축기 부하를 분산하고 용접건 가압력 하한 인터록을 설정함",
+      "resultSummary": "가압력 회복 후 타점 강도가 기준을 만족함"
+    },
+    {
+      "genId": "G312", "clusterId": "C6", "role": "SIMILAR",
+      "productCode": "SYN-P-03", "processCode": "SYN-PR-SPW", "equipmentCode": "SYN-EQ-SPW-01",
+      "lotNo": "SYN-L-3012", "defectType": "용접 강도 부족",
+      "title": "지그 위치별 너깃 편차",
+      "problemDescription": "특정 지그 위치의 타점에서만 너깃이 작게 나왔다. 판재 사이에 눈에 띄는 틈이 있었고 지그 클램프 패드가 닳아 있었다.",
+      "productionQuantity": 1000, "defectQuantity": 42, "occurredAt": "2026-09-21T09:50:00",
+      "rootCause": "클램프 패드 마모로 판재 간 틈이 생겨 전류 경로가 불안정해짐",
+      "correctiveAction": "클램프 패드를 교체하고 판재 밀착 상태 점검을 추가함",
+      "resultSummary": "교체 후 위치별 너깃 편차가 사라짐"
+    },
+    {
+      "genId": "G313", "clusterId": "C6", "role": "CONFUSING",
+      "productCode": "SYN-P-03", "processCode": "SYN-PR-SPW", "equipmentCode": "SYN-EQ-SPW-01",
+      "lotNo": "SYN-L-3013", "defectType": "용접 강도 부족",
+      "title": "타점 추가 설계 변경 후 강도 저하",
+      "problemDescription": "일부 타점의 강도가 떨어졌다. 압축 공기 압력과 용접건 가압력은 정상이었다. 설계 변경으로 인접 타점 간격이 좁아져 있었다.",
+      "productionQuantity": 920, "defectQuantity": 38, "occurredAt": "2026-09-29T16:00:00",
+      "rootCause": "타점 간격이 좁아 이미 용접된 인접 타점으로 전류가 분류됨",
+      "correctiveAction": "타점 간격을 다시 설계하고 해당 타점의 전류를 보정함",
+      "resultSummary": "재설계 후 강도 저하가 재발하지 않음"
+    },
+    {
+      "genId": "G321", "clusterId": "N3", "role": "NOISE",
+      "productCode": "SYN-P-03", "processCode": "SYN-PR-SPW", "equipmentCode": "SYN-EQ-SPW-01",
+      "lotNo": "SYN-L-3021", "defectType": "스패터 과다",
+      "title": "용접 중 불꽃 튐 증가",
+      "problemDescription": "용접 중 불꽃 튐이 늘고 주변 판재에 스패터가 붙었다. 통전 초기 전류 상승 구간 설정이 빠져 있었다.",
+      "productionQuantity": 1100, "defectQuantity": 80, "occurredAt": "2026-09-13T10:20:00",
+      "rootCause": "업슬로프 설정 누락으로 통전 초기에 전류가 급격히 걸림",
+      "correctiveAction": "업슬로프 구간을 다시 설정하고 조건 백업을 관리함",
+      "resultSummary": "재설정 후 스패터가 줄어듦"
+    },
+    {
+      "genId": "G322", "clusterId": "N3", "role": "NOISE",
+      "productCode": "SYN-P-03", "processCode": "SYN-PR-SPW", "equipmentCode": "SYN-EQ-SPW-01",
+      "lotNo": "SYN-L-3022", "defectType": "타점 위치 불량",
+      "title": "타점 위치 기준 이탈",
+      "problemDescription": "타점이 기준 위치에서 벗어나 있었다. 로봇 원점 확인 결과 충돌 이력 이후 원점이 틀어져 있었다.",
+      "productionQuantity": 1050, "defectQuantity": 64, "occurredAt": "2026-09-23T13:30:00",
+      "rootCause": "로봇 충돌 후 원점이 틀어져 타점 위치가 이동함",
+      "correctiveAction": "원점을 재보정하고 충돌 후 원점 확인 절차를 추가함",
+      "resultSummary": "재보정 후 타점 위치가 기준 안으로 들어옴"
+    },
+    {
+      "genId": "G323", "clusterId": "N3", "role": "NOISE",
+      "productCode": "SYN-P-03", "processCode": "SYN-PR-SPW", "equipmentCode": "SYN-EQ-SPW-01",
+      "lotNo": "SYN-L-3023", "defectType": "외관 불량",
+      "title": "타점 표면 패임 과다",
+      "problemDescription": "타점 표면이 깊게 패여 외관 기준을 넘었다. 통전 시간이 다른 차종 조건으로 길게 설정되어 있었다.",
+      "productionQuantity": 1000, "defectQuantity": 52, "occurredAt": "2026-09-30T11:40:00",
+      "rootCause": "통전 시간 과다로 전극이 판재를 과도하게 눌러 패임이 커짐",
+      "correctiveAction": "통전 시간을 해당 차종 조건으로 되돌리고 조건 잠금을 설정함",
+      "resultSummary": "조건 복원 후 패임이 기준 이내로 들어옴"
+    }
+  ]
+}
