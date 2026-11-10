@@ -7,6 +7,8 @@ import com.iot.project.IndexingJob.IndexingJob;
 import com.iot.project.IndexingJob.IndexingJobRepository;
 import com.iot.project.IndexingJob.SearchVisibilityJob;
 import com.iot.project.IndexingJob.SearchVisibilityJobRepository;
+import com.iot.project.InspectionResult.InspectionResultRepository;
+import com.iot.project.InspectionResult.InspectionResultResponse;
 import com.iot.project.ManufacturingProcess.ManufacturingProcess;
 import com.iot.project.ManufacturingProcess.ManufacturingProcessNotFoundException;
 import com.iot.project.ManufacturingProcess.ManufacturingProcessRepository;
@@ -44,6 +46,7 @@ public class QualityCaseService {
     private final IndexingJobRepository indexingJobRepository;
     private final SearchVisibilityJobRepository visibilityJobRepository;
     private final QualityCaseRevisionRepository revisionRepository;
+    private final InspectionResultRepository inspectionResultRepository;
     private final EmbeddingClient embeddingClient;
     private final QdrantClient qdrantClient;
 
@@ -68,7 +71,14 @@ public class QualityCaseService {
     }
 
     @Transactional(readOnly = true)
-    public QualityCaseResponse findById(Long id) {
+    public QualityCaseDetailResponse findById(Long id) {
+        return new QualityCaseDetailResponse(loadResponseWithCurrentJob(id),
+                inspectionResultRepository.findAllByQualityCase_IdOrderByIdDesc(id).stream()
+                        .map(InspectionResultResponse::from).toList());
+    }
+
+    // 사례 + 현재 버전의 검색 반영 상태 (삭제됐거나 없으면 404)
+    private QualityCaseResponse loadResponseWithCurrentJob(Long id) {
         return qualityCaseRepository.findWithCurrentJobById(id).stream()
                 .map(row -> QualityCaseResponse.from((QualityCase) row[0], (IndexingJob) row[1]))
                 .findFirst()
@@ -136,7 +146,7 @@ public class QualityCaseService {
         }
         qualityCase.restore();
         visibilityJobRepository.save(new SearchVisibilityJob(qualityCase));
-        return findById(id);
+        return loadResponseWithCurrentJob(id);
     }
 
     // 해결 취소: 직전 값을 이력에 남기고 원인/조치/결과를 비워 OPEN + 새 버전 (진행 중인 인덱싱 job은 처리기가 SUPERSEDED)

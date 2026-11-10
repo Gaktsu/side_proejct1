@@ -69,4 +69,30 @@ public class InspectionResult {
     // 등록일
     @Column(nullable = false)
     private LocalDateTime createdAt;
+
+    public InspectionResult(QualityCase qualityCase, String inspectionItem, String inspectionMethod,
+                            BigDecimal numericValue, String textValue, String unit, BigDecimal specMin,
+                            BigDecimal specMax, String specText, ResultStatus resultStatus,
+                            LocalDateTime measuredAt) {
+        this.qualityCase = qualityCase;
+        this.createdAt = LocalDateTime.now();
+        update(inspectionItem, inspectionMethod, numericValue, textValue, unit, specMin, specMax, specText,
+                resultStatus, measuredAt);
+    }
+
+    // 수정 가능한 필드 전체 교체. 소속 사례와 createdAt은 바뀌지 않는다
+    public void update(String inspectionItem, String inspectionMethod, BigDecimal numericValue, String textValue,
+                       String unit, BigDecimal specMin, BigDecimal specMax, String specText,
+                       ResultStatus resultStatus, LocalDateTime measuredAt) {
+        this.inspectionItem = inspectionItem;
+        this.inspectionMethod = inspectionMethod;
+        this.numericValue = numericValue;
+        this.textValue = textValue;
+        this.unit = unit;
+        this.specMin = specMin;
+        this.specMax = specMax;
+        this.specText = specText;
+        this.resultStatus = resultStatus;
+        this.measuredAt = measuredAt;
+    }
 }
